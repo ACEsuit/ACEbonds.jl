@@ -1,9 +1,16 @@
 name = "ACEbonds"
 uuid = "d0dfcdf4-f9d4-4d39-8ac7-72ac73934171"
 authors = ["Christoph Ortner <christophortner0@gmail.com> and contributors"]
-version = "0.1.0"
+version = "0.0.0"
+
+[deps]
+ACE = "3e8ccfd2-c8b0-11ea-32f1-f3a5990fd77a"
+ACEatoms = "1e34e032-0b37-4839-a012-196b35408c3c"
+ACEbase = "14bae519-eb20-449c-a949-9c58ed33163e"
+JuLIP = "945c410c-986d-556a-acb1-167a618e0462"
 
 [compat]
+ACE = "0.12.36"
 julia = "1.7"
 
 [extras]
