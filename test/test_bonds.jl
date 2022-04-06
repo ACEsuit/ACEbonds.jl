@@ -1,10 +1,10 @@
-using ACE, Test, LinearAlgebra
-using ACE: State, CylindricalBondEnvelope, EllipsoidBondEnvelope
-using StaticArrays 
-using ACEbase.Testing: print_tf
-
+using ACEbonds, ACE, ACEbase, Test, StaticArrays, LinearAlgebra
+using ACEbase.Testing
+using ACEbonds: CylindricalBondEnvelope, EllipsoidBondEnvelope
+using ACE: State
 using ACE.Random: rand_rot, rand_refl
-## Use a specific example to test the Cylindrical cutoff
+
+##
 
 @info("Testing Cylindrical Bond Envelope")
 
@@ -46,7 +46,7 @@ for i = 1:30
 end
 println()
 
-#%%
+##
 
 @info("Testing Ellipsoid Bond Envelope")
 
@@ -100,3 +100,4 @@ for lambda = [0,.5,.6,1]
         println()
     end
 end
+

@@ -1,3 +1,6 @@
+using LinearAlgebra: norm, dot 
+
+import ACE: _inner_evaluate
 
 """
 Given a bond (i, j) it has an environment {k} which could be 
@@ -51,11 +54,17 @@ struct EllipsoidBondEnvelope{T} <: BondEnvelope{T}
    λ::T
 end
 
-EllipsoidBondEnvelope(r0cut, zcut, rcut; p0=2, pr=2, floppy=false, λ=.5) = EllipsoidBondEnvelope(r0cut, zcut, rcut, p0, pr, floppy, λ)
-EllipsoidBondEnvelope(r0cut, cut; p0=2, pr=2, floppy=false, λ=.5) = EllipsoidBondEnvelope(r0cut, cut, cut, p0, pr, floppy, λ)
+EllipsoidBondEnvelope(r0cut, zcut, rcut; p0=2, pr=2, floppy=false, λ=.5) = 
+         EllipsoidBondEnvelope(r0cut, zcut, rcut, p0, pr, floppy, λ)
 
-cutoff_env(env::EllipsoidBondEnvelope) = env.zcut + env.rcut 
-cutoff_radialbasis(env::EllipsoidBondEnvelope) = env.zcut + env.floppy * env.λ * env.r0cut
+EllipsoidBondEnvelope(r0cut, cut; p0=2, pr=2, floppy=false, λ=.5) = 
+         EllipsoidBondEnvelope(r0cut, cut, cut, p0, pr, floppy, λ)
+
+cutoff_env(env::EllipsoidBondEnvelope) = 
+         env.zcut + env.rcut 
+
+cutoff_radialbasis(env::EllipsoidBondEnvelope) = 
+         env.zcut + env.floppy * env.λ * env.r0cut
 
 function _evaluate_bond(env::BondEnvelope, X::AbstractState)
    r = norm(X.rr0)
@@ -93,7 +102,10 @@ end
 _eff_zcut(env::BondEnvelope, X::AbstractState) = env.zcut + env.floppy * norm(env.λ * X.rr0)
 
 # The envelope for environment bonds
-_eval_env_inner(env::CylindricalBondEnvelope, z, r, zeff) = ( (z/zeff)^2 - 1 )^(env.pz) * (abs(z) <= zeff) * 
-         ( (r/env.rcut)^2 - 1 )^(env.pr) * (r <= env.rcut)
+_eval_env_inner(env::CylindricalBondEnvelope, z, r, zeff) = (
+         ( (z/zeff)^2 - 1 )^(env.pz) * (abs(z) <= zeff) * 
+           ( (r/env.rcut)^2 - 1 )^(env.pr) * (r <= env.rcut)  )
 
-_eval_env_inner(env::EllipsoidBondEnvelope, z, r, zeff) = ( (z/zeff)^2 +(r/env.rcut)^2 - 1.0)^(env.pr) * ((z/zeff)^2 +(r/env.rcut)^2 <= 1)
+_eval_env_inner(env::EllipsoidBondEnvelope, z, r, zeff) = (
+         ( (z/zeff)^2 +(r/env.rcut)^2 - 1.0)^(env.pr) * 
+           ((z/zeff)^2 +(r/env.rcut)^2 <= 1) )
