@@ -82,3 +82,18 @@ Xenv = ACEbonds.eucl2cyl(rr0, Rs, Zs)
 
 evaluate(B1p, Xenv)
 evaluate(basis, ACEConfig(Xenv))
+
+##
+
+@info("Test invariance of the new basis")
+for ntest = 1:30
+   rr0, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
+   Xenv = ACEbonds.eucl2cyl(rr0, Rs, Zs)
+   B1 = evaluate(basis, ACEConfig(Xenv))
+   Q = ACE.Random.rand_rot()
+   rr0_Q = Q * rr0 
+   Rs_Q = Ref(Q) .* Rs
+   Xenv_Q = ACEbonds.eucl2cyl(rr0_Q, Rs_Q, Zs)
+   B2 = evaluate(basis, ACEConfig(Xenv_Q))
+   print_tf(@test( B1 ≈ B2 && !all(Xenv_Q .≈ Xenv) ))
+end
