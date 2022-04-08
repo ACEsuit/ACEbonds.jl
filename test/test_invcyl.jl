@@ -17,7 +17,7 @@ for _ = 1:15
    print_tf(@test( H' * [0,0,1] ≈ rr0/norm(rr0) ))
    print_tf(@test H' * H ≈ I)
 end
-println()»
+println()
 
 ##
 
@@ -124,3 +124,23 @@ println()
 ## 
 
 @info("Check derivatives w.r.t. euclidean coordinates")
+
+for ntest = 1:30 
+   rr0, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
+   Us = randn(SVector{3, Float64}, length(Rs))
+   uu0 = randn(SVector{3, Float64})
+   V = randn(length(B)) ./ (1:length(B))
+
+   julip2ace = t -> ACEConfig(ACEbonds.eucl2cyl(rr0 + t * uu0, Rs + t * Us, Zs))
+   F = t -> dot(V, evaluate(basis, julip2ace(t)))
+
+   dF = t -> begin
+         dB = evaluate_d(basis, julip2ace(t))
+         dB0, dBenv = ACEbonds.rrule_eucl2cyl(rr0, Rs, Zs, dB)
+         ACE.contract( sum(V[i] * dBenv[i, :] for i = 1:length(V)), Us) + 
+                  dot( sum(V[i] * dB0[i] for i = 1:length(V)), uu0 )
+      end
+
+   print_tf(@test all(ACEbase.Testing.fdtest(F, dF, 0.0; verbose=false)) )
+end
+println()

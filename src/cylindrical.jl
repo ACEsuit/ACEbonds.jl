@@ -1,5 +1,5 @@
 
-using ACE: State 
+using ACE: State, DState, ForwardDiff
 using StaticArrays
 # using NamedTupleTools 
 using JuLIP: AtomicNumber 
@@ -14,6 +14,41 @@ function housholderreflection(rr0::SVector{3})
    v̂ = v / norm(v)
    return I3x3 - 2 * v̂ * v̂' 
 end
+
+function pullback_housholderreflection(rr0::SVector{3}) 
+   H = housholderreflection(rr0)
+   dH = reshape(ForwardDiff.jacobian(rr -> housholderreflection(rr)[:], rr0), 
+                (3, 9))
+   dHt = dH' 
+   return H, g -> reshape(dHt * g, (3,3))
+end
+
+_xyz2rθz(ss) = SVector(sqrt(ss[1]^2 + ss[2]^2), 
+                       atan(ss[2], ss[1]), 
+                       ss[3])
+
+# function _rθz2xyz_d(ss)
+#    s, θ, z = _xyz2rθz(ss)
+#    sθ, cθ = sincos(θ)
+#    return SA[ cθ -s*sθ 0; 
+#               sθ  s*cθ 0; 
+#                0    0  1 ]
+# end
+
+@doc raw"""
+This implements the jacobi matrix 
+```math
+   J = \frac{\partial (r, \theta, z)}{\partial (x, y, z)}
+```
+"""
+function _xyz2rθz_d(ss)
+   s, θ, z = _xyz2rθz(ss)
+   sθ, cθ = sincos(θ)
+   return SA[ cθ    sθ 0; 
+              -sθ/s cθ/s 0; 
+               0    0 1 ]
+end
+
 
 """
 transforms euclidean to cylindral bond environment 
@@ -36,10 +71,9 @@ function eucl2cyl(rr0::SVector, Rs::AbstractVector{<: SVector},
 
    function _eucl2cyl(rr, mu)
       ss = H * rr 
+      r, θ, z = _xyz2rθz(ss)
       return State( mu = mu, 
-                    r = sqrt(ss[1]^2 + ss[2]^2),
-                    θ = atan(ss[2], ss[1]), 
-                    z = ss[3], 
+                    r = r, θ = θ, z = z, 
                     r0 = r0, 
                     be = :env )
    end
@@ -54,6 +88,47 @@ function eucl2cyl(rr0::SVector, Rs::AbstractVector{<: SVector},
 
    return cfg 
 end
+
+"""
+ssj = H * rrj 
+cj = xyz2rθz(ssj)
+∂_rrj(f) = ∂_cj(f) * ∂_ssj(cj) * ∂_rrj(ssj)
+∇_rrj(f) = ∂_rrj(ssj)' * ∂_ssj(cj)' * ∇_cj(f) 
+∇_rrj(f) = ∂_rr0(ssj)' * ∂_ssj(cj)' * ∇_cj(f)
+"""
+
+function rrule_eucl2cyl(rr0::SVector, Rs::AbstractVector{<: SVector}, 
+                        Zs::AbstractVector{<: AtomicNumber}, 
+                        g_cyl::AbstractMatrix{<: DState})
+   lenB = size(g_cyl, 1)
+   lenR = length(Rs)
+   @assert size(g_cyl, 2) == lenR + 1 
+   H = housholderreflection(rr0)
+   H, pbH = pullback_housholderreflection(rr0)
+   r̂0 = rr0 / norm(rr0) # ∇f(r0) = f'(r0) * r̂0
+
+   g_Rs = zeros(SVector{3, Float64}, lenB, lenR)
+   # g_cyl[:, 1] = derivative w.r.t. rr0 only
+   g_rr0 = [ g_cyl[n, 1].r0 * r̂0 for n = 1:lenB ]
+
+   for j = 1:lenR
+      rrj = Rs[j] 
+      ss = H * rrj
+      ∂0_ss = 
+      s, θ, z = _xyz2rθz(ss)
+      J = _xyz2rθz_d(ss)
+      for n = 1:lenB
+         gj = g_cyl[n, j+1] 
+         gj1 = J' * SVector(gj.r, gj.θ, gj.z)
+         g_rr0[n] += gj.r0 * r̂0 + pbH(gj1)' * rrj
+         g_Rs[n, j] = H' * gj1 
+      end
+   end
+   
+   return g_rr0, g_Rs 
+end
+
+
 
 # monkey-path JuLIP since we aren't really updating it anymore 
 Base.isapprox(a::AtomicNumber, b::AtomicNumber) = (a == b)
