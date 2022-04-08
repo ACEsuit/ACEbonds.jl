@@ -88,6 +88,7 @@ evaluate(basis, ACEConfig(Xenv))
 
 @info("Test invariance of the new basis")
 for ntest = 1:30
+   local rr0, Rs, Zs, Xs, Xenv 
    rr0, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
    Xenv = ACEbonds.eucl2cyl(rr0, Rs, Zs)
    B1 = evaluate(basis, ACEConfig(Xenv))
@@ -126,6 +127,7 @@ println()
 @info("Check derivatives w.r.t. euclidean coordinates")
 
 for ntest = 1:30 
+   local rr0, Rs, Zs, Xs, Xenv 
    rr0, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
    Us = randn(SVector{3, Float64}, length(Rs))
    uu0 = randn(SVector{3, Float64})
