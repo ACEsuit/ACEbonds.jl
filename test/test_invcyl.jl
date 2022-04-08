@@ -17,7 +17,7 @@ for _ = 1:15
    print_tf(@test( H' * [0,0,1] ≈ rr0/norm(rr0) ))
    print_tf(@test H' * H ≈ I)
 end
-
+println()»
 
 ##
 
@@ -37,6 +37,7 @@ for ntest = 1:30
    Xenv = ACEbonds.eucl2cyl(rr0, Rs, Zs)
    print_tf(@test( all(Xenv[2:end] .≈ Xs) ))
 end
+println()
 
 ##
 
@@ -97,3 +98,29 @@ for ntest = 1:30
    B2 = evaluate(basis, ACEConfig(Xenv_Q))
    print_tf(@test( B1 ≈ B2 && !all(Xenv_Q .≈ Xenv) ))
 end
+println()
+
+##
+
+@info("Check derivatives w.r.t. cylindrical coordinates")
+B = evaluate(basis, ACEConfig(Xenv))
+dB = evaluate_d(basis, ACEConfig(Xenv))
+TDX = ACE.dstate_type(Xenv[1])
+
+for ntest = 1:30
+   U = [ randn(TDX) for _ = 1:length(Xenv) ]
+   V = randn(length(B)) ./ (1:length(B))
+
+   F = t -> dot(V, evaluate(basis, ACEConfig(Xenv + t * U)))
+   dF = t -> ( dB = evaluate_d(basis, ACEConfig(Xenv + t * U)); 
+               ACE.contract(sum(V[i] * dB[i, :] for i = 1:length(V)), U) )
+   F(0.0)
+   dF(0.0)
+
+   print_tf(@test all(ACEbase.Testing.fdtest(F, dF, 0.0; verbose=false)) )
+end
+println()
+
+## 
+
+@info("Check derivatives w.r.t. euclidean coordinates")
