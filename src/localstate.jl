@@ -11,18 +11,23 @@ struct BondsIterator
    filter 
 end 
 
+"""
+* rcutbond: include all bonds (i,j) such that rij <= rcutbond 
+* `rcutenv`: include all bond environment atoms k such that `|rk - mid| <= rcutenv` 
+* `filter` : `filter(X) == true` if particle `X` is to be included; `false` if to be discarded from the environment
+"""
 function bonds(at::Atoms, rcutbond, rcutenv, filter) 
    nlist_bond = neighbourlist(at, rcutbond) 
    nlist_env = neighbourlist(at, rcutenv)
    return BondsIterator(at, nlist_bond, rcutbond, nlist_env, rcutenv, filter)
 end
 
-function iterate(iter::BondsIterator, state=(0,0))
+function Base.iterate(iter::BondsIterator, state=(1,0))
    i, q = state 
    Js, Rs = neigs(iter.nlist_bond, i)
 
    # nothing left to do 
-   if i >= length(at) && q >= length(Js)
+   if i >= length(iter.at) && q >= length(Js)
       return nothing 
    end 
 
@@ -36,42 +41,66 @@ function iterate(iter::BondsIterator, state=(0,0))
 
     #  case 2: if i < length(at) but q >= length(Js) then we need to 
     #          increment the i index and get the new neighbours 
-   elseif 
+   elseif i < length(iter.at) 
       i += 1 
       Js, Rs = neigs(iter.nlist_bond, i)
-      Js = sort(Js) # sort in increasing order 
       q = 1 
+   else 
+      return nothing 
    end 
 
    j = Js[q]   # index of neighbour (in central cell)
-   rrj = Rs[q]  # position of neighbour (in shifted cell)
-   ssj = Rs[q] - at.X[j]   # shift of atom j into shifted cell
+   rrij = Rs[q]  # position of neighbour (in shifted cell) relative to i
+   # ssj = Rs[q] - iter.at.X[j]   # shift of atom j into shifted cell
    
    # now we construct the environment 
-
+   return _get_bond(iter.nlist_env, i, iter.at.X[i], j, rrij, iter.filter)
    
 end
 
-function _get_bond(nlist, i, rri, j, rrj, filter)
+function _get_bond(nlist, i, rri, j, rrij, filter)
    Js_i, Rs_i = neigs(nlist, i)
+   @show rrij 
+   @show Js_i[1], Rs_i[1] 
 
-   rrmid = 0.5 * (rri + rrj)
-   rrbond = rrj - rri
-   env = [] 
-   for (q, rrq) in zip(Js_i, Rs_i) 
-      rr = rrq + rri - rrmid 
-      if rr ≈ rrj   # TODO: replace this with checking for j and shift!
-         @assert Js_i[q] == j 
+   rrmid = (rri + 0.5 * rrij)
+   rrbond = rrij
+   TX = typeof(State(rr = rrbond, rr0 = rrbond, be = :bond))
+   env = TX[]  
+   sizehint!(env, length(Js_i) ÷ 4)
+
+   # add the bond itself first.    
+   q_bond = 0 
+   for (q, rrq) in enumerate(Rs_i)
+      # rr = rrq + rri - rrmid 
+      if rrq ≈ rrij   # TODO: replace this with checking for j and shift!
+         @assert Js_i[q] == j
+         q_bond = q 
          X = State(rr = rrbond,  # or should it be zero? 
                    rr0 = rrbond, 
                    be = :bond)
          push!(env, X)
-      elseif filter(rr)
-         X = State(rr = rr, 
-                   rr0 = rrbond, 
-                   be = :env)
+         break 
+      end
+   end
+
+   if q_bond == 0 
+      error("the central bond neigbour atom j was not found")
+   end
+
+   # now add the environment 
+   for (q, rrq) in zip(Js_i, Rs_i) 
+      # skip the central bond 
+      if q == q_bond; continue; end 
+      # add the rest provided they fall within the provided filter 
+      rr = rrq + rri - rrmid 
+      X = State(rr = rr, 
+                rr0 = rrbond, 
+                be = :env)
+      if filter(X)
          push!(env, X)
       end
    end
-   return identity.(env)
+
+   return env 
 end
