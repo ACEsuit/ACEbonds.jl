@@ -49,6 +49,14 @@ function _xyz2rθz_d(ss)
                0    0 1 ]
 end
 
+# this is just a helper function which should not be used for 
+# performance critical code 
+function eucl2cyl(rr0::SVector, rr::SVector) 
+   H = housholderreflection(rr0)
+   ss = H * rr 
+   r, θ, z = _xyz2rθz(ss)
+   return r, θ, z
+end
 
 """
 transforms euclidean to cylindral bond environment 
@@ -96,7 +104,6 @@ cj = xyz2rθz(ssj)
 ∇_rrj(f) = ∂_rrj(ssj)' * ∂_ssj(cj)' * ∇_cj(f) 
 ∇_rrj(f) = ∂_rr0(ssj)' * ∂_ssj(cj)' * ∇_cj(f)
 """
-
 function rrule_eucl2cyl(rr0::SVector, Rs::AbstractVector{<: SVector}, 
                         Zs::AbstractVector{<: AtomicNumber}, 
                         g_cyl::AbstractMatrix{<: DState})
@@ -130,7 +137,7 @@ end
 
 
 
-# monkey-path JuLIP since we aren't really updating it anymore 
+# monkey-patch JuLIP since we aren't really updating it anymore 
 Base.isapprox(a::AtomicNumber, b::AtomicNumber) = (a == b)
 
 """
