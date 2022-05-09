@@ -12,4 +12,6 @@ include("cylindrical.jl")
 
 include("localstate.jl")
 
+include("bondpot.jl")
+
 end
