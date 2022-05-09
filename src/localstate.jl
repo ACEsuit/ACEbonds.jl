@@ -1,7 +1,9 @@
 using JuLIP, StaticArrays, LinearAlgebra
 using ACE: State, filter 
+using JuLIP.Potentials: neigsz
 # using ACE: BondEnvelope, filter, State, CylindricalBondEnvelope
 
+# TODO: make this type-stable
 struct BondsIterator 
    at
    nlist_bond
@@ -22,6 +24,7 @@ end
 
 function Base.iterate(iter::BondsIterator, state=(1,0))
    i, q = state 
+   # store temporary arrays for those...
    Js, Rs = neigs(iter.nlist_bond, i)
 
    # nothing left to do 
@@ -52,19 +55,21 @@ function Base.iterate(iter::BondsIterator, state=(1,0))
    # ssj = Rs[q] - iter.at.X[j]   # shift of atom j into shifted cell
    
    # now we construct the environment 
-   Js_e, Rs_e = _get_bond_env(iter.nlist_env, i, iter.at.X[i], j, rrij, 
-                              iter.filter)
+   Js_e, Rs_e, Zs_e = _get_bond_env(iter, i, j, rrij)
 
-   return (i, j, rrij, Js_e, Rs_e), (i, q)
+   return (i, j, rrij, Js_e, Rs_e, Zs_e), (i, q)
 end
 
 
-function _get_bond_env(nlist, i, rri, j, rrij, filter)
-   Js_i, Rs_i = neigs(nlist, i)
+function _get_bond_env(iter::BondsIterator, i, j, rrij)
+   # TODO: store temporary arrays 
+   Js_i, Rs_i, Zs_i = neigsz(iter.nlist_env, iter.at, i)
 
+   rri = iter.at.X[i]
    rrmid = rri + 0.5 * rrij
    Js = Int[]; sizehint!(Js,  length(Js_i) ÷ 4)
    Rs = typeof(rrij)[]; sizehint!(Rs,  length(Js_i) ÷ 4)
+   Zs = AtomicNumber[]; sizehint!(Zs,  length(Js_i) ÷ 4)
 
    ŝ = rrij/norm(rrij) 
    
@@ -91,11 +96,12 @@ function _get_bond_env(nlist, i, rri, j, rrij, filter)
       rr = rrq + rri - rrmid 
       z = dot(rr, ŝ)
       r = norm(rr - z * ŝ)
-      if filter(r, z)
+      if iter.filter(r, z)
          push!(Js, Js_i[q])
          push!(Rs, rr)
+         push!(Zs, Zs_i[q])
       end
    end
 
-   return Js, Rs
+   return Js, Rs, Zs 
 end

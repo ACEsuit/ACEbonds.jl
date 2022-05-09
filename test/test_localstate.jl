@@ -16,14 +16,17 @@ env_filter = (r, z) -> (r < rcut) && (abs(z) < zcut )
 
 it = bonds(at, rbcut, rbcut/2+zcut, env_filter)
 
-(i, j, rr0, Js, Rs), state = iterate(it)
+(i, j, rr0, Js, Rs, Zs), state = iterate(it)
 
-for (i1, j1, rr01, Js1, Rs1) in bonds(at, rbcut, rbcut/2+zcut, env_filter)
+for (i1, j1, rr01, Js1, Rs1, Zs1) in bonds(at, rbcut, rbcut/2+zcut, env_filter)
    if i1 == length(at) ÷ 2
-      i = i1; j = j1; rr0 = rr01; Js = Js1; Rs = Rs1 
+      i = i1; j = j1; rr0 = rr01; Js = Js1; Rs = Rs1; Zs = Zs1 
       break 
    end
 end
+
+# now we can transform it to an ACE.jl compatible environment 
+env = ACEbonds.eucl2cyl(rr0, at.Z[i], at.Z[j], Rs, Zs)
 
 
 ## Manual debugging of the bond environments 
@@ -57,4 +60,5 @@ function plot_bondenv(i, j, Js, at)
 end
 
 scene = plot_bondenv(i, j, Js, at);
-display(scene)
+window = display(scene)
+# close(window) to close it. 
