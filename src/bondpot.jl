@@ -66,7 +66,7 @@ Base.length(basis::ACEBondPotentialBasis) =
 # --------------------------------------------------------
 
 import JuLIP: energy, forces, virial 
-import ACE: evaluate, evaluate_d
+import ACE: evaluate, evaluate_d, grad_config
 
 # overload the initiation of the bonds iterator to correctly extract the 
 # right cutoffs. 
@@ -118,9 +118,8 @@ function forces(calc::ACEBondPotential, at::Atoms)
       ace = _get_model(calc, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
       env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
-      @show typeof(env)
       # evaluate 
-      dV_cyl = evaluate_d(ace, env)
+      dV_cyl = grad_config(ace, env)
       # transform back? 
       dV_drrij, dV_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
       # assemble the forces 
@@ -132,5 +131,5 @@ function forces(calc::ACEBondPotential, at::Atoms)
          F[j] += 0.5 * dv 
       end
    end
-   return E 
+   return F 
 end
