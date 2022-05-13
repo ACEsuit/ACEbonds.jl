@@ -93,6 +93,32 @@ function energy(calc::ACEBondPotential, at::Atoms)
 end
 
 
+function forces(calc::ACEBondPotential, at::Atoms)
+   F = zeros(SVector{3, Float64}, length(at))
+   for (i, j, rrij, Js, Rs, Zs) in bonds(at, calc)
+      Zi, Zj = at.Z[i], at.Z[j]
+      # find the right ace model 
+      ace = _get_model(calc, Zi, Zj)
+      # transform the euclidean to cylindrical coordinates
+      env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
+      # evaluate 
+      dV_cyl = grad_config(ace, env)
+      # transform back? 
+      dV_drrij, dV_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
+      # assemble the forces 
+      F[i] += dV_drrij 
+      F[j] -= dV_drrij 
+      for (k, dv) in zip(Js, dV_dRs)
+         F[k] -= dv
+         F[i] += 0.5 * dv 
+         F[j] += 0.5 * dv 
+      end
+   end
+   return F 
+end
+
+
+
 function energy(basis::ACEBondPotentialBasis, at::Atoms)
    E = zeros(Float64, length(basis))
    Et = zeros(Float64, length(basis))
@@ -109,26 +135,27 @@ function energy(basis::ACEBondPotentialBasis, at::Atoms)
 end
 
 
-
-function forces(calc::ACEBondPotential, at::Atoms)
-   F = zeros(SVector{3, Float64}, length(at))
-   for (i, j, rrij, Js, Rs, Zs) in bonds(at, calc)
+function forces(basis::ACEBondPotentialBasis, at::Atoms)
+   F = zeros(SVector{3, Float64}, length(basis), length(at))
+   for (i, j, rrij, Js, Rs, Zs) in bonds(at, basis)
       Zi, Zj = at.Z[i], at.Z[j]
       # find the right ace model 
-      ace = _get_model(calc, Zi, Zj)
+      ace = _get_model(basis, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
       env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
       # evaluate 
-      dV_cyl = grad_config(ace, env)
+      dB_cyl = evaluate_d(ace, env)
       # transform back? 
-      dV_drrij, dV_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
+      dB_drrij, dB_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dB_cyl)
       # assemble the forces 
-      F[i] -= dV_drrij 
-      F[j] += dV_drrij 
-      for (k, dv) in zip(Js, dV_dRs)
-         F[k] -= dv
-         F[i] += 0.5 * dv 
-         F[j] += 0.5 * dv 
+      F[:, i] += dB_drrij 
+      F[:, j] -= dB_drrij 
+      for n = 1:length(Js) 
+         k = Js[n]
+         dv = dB_dRs[:, n]
+         F[:, k] -= dv
+         F[:, i] += 0.5 * dv 
+         F[:, j] += 0.5 * dv 
       end
    end
    return F 

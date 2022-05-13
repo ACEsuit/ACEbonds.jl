@@ -59,9 +59,22 @@ potbasis = ACEbonds.basis(pot)
 
 at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 1), false), 0.2)
 
-energy(pot, at) ≈ dot(energy(potbasis, at), θ)
+##
+
+@info("Testing energy pot vs energy basis")
+println_slim(@test energy(pot, at) ≈ dot(energy(potbasis, at), θ))
+
+@info("Testing forces pot vs basis")
+dB = forces(potbasis, at)
+println_slim(@test( sum( θ[n] * dB[n, :] for n = 1:length(θ) ) ≈ forces(pot, at) ))
+
+@info("Finite-difference forces test")
+println_slim(@test JuLIP.Testing.fdtest(pot, at))
 
 ##
 
-JuLIP.Testing.fdtest(pot, at)
+
+
+
+
 
