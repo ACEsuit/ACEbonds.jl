@@ -138,6 +138,35 @@ function rrule_eucl2cyl(rr0::SVector, Zi, Zj,
    return g_rr0, g_Rs 
 end
 
+function rrule_eucl2cyl(rr0::SVector, Zi, Zj, 
+                        Rs::AbstractVector{<: SVector}, 
+                        Zs::AbstractVector{<: AtomicNumber}, 
+                        g_cyl::AbstractVector{<: DState})
+   lenR = length(Rs)
+   @assert length(g_cyl) == lenR + 1
+   H = housholderreflection(rr0)
+   H, pbH = pullback_housholderreflection(rr0)
+   r̂0 = rr0 / norm(rr0) # ∇f(r0) = f'(r0) * r̂0
+
+   g_Rs = zeros(SVector{3, Float64}, lenR)
+   # deriv. of first element w.r.t. rr0 only 
+   g_rr0 = g_cyl[1].rij * r̂0
+
+   for j = 1:lenR
+      rrj = Rs[j] 
+      ss = H * rrj
+      s, θ, z = _xyz2rθz(ss)
+      J = _xyz2rθz_d(ss)
+      gj = g_cyl[j+1] 
+      gj1 = J' * SVector(gj.r, gj.θ, gj.z)
+      g_rr0 += gj.rij * r̂0 + pbH(gj1)' * rrj
+      g_Rs[j] = H' * gj1 
+   end
+
+   return g_rr0, g_Rs 
+end
+
+
 
 
 # monkey-patch JuLIP since we aren't really updating it anymore 

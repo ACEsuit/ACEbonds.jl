@@ -52,7 +52,7 @@ _get_basisinds(V::ACEBondPotentialBasis) = V.inds
 function basis(V::ACEBondPotential)
    models = Dict( [zz => model.basis for (zz, model) in V.models]... )
    inds = _get_basisinds(V)
-   return ACEBondPotentialBasis{Base.valtype(models)}(models, inds)
+   return ACEBondPotentialBasis(models, inds, V.cutoff)
 end
 
 # TODO: 
@@ -66,7 +66,7 @@ Base.length(basis::ACEBondPotentialBasis) =
 # --------------------------------------------------------
 
 import JuLIP: energy, forces, virial 
-import ACE: evaluate 
+import ACE: evaluate, evaluate_d
 
 # overload the initiation of the bonds iterator to correctly extract the 
 # right cutoffs. 
@@ -75,41 +75,62 @@ bonds(at::Atoms, calc::ACEBondCalc) =
                 calc.cutoff.rcutbond/2 + calc.cutoff.zcutenv, 
                 (r, z) -> env_filter(r, z, calc.cutoff) )
 
+_get_model(calc::ACEBondCalc, zi, zj) = 
+      calc.models[(min(zi, zj), max(zi,zj))]
 
 function energy(calc::ACEBondPotential, at::Atoms)
    E = 0.0 
    for (i, j, rrij, Js, Rs, Zs) in bonds(at, calc)
       # find the right ace model 
-      is, js = min(i,j), max(i,j)
-      ace = calc.models[(at.Z[is], at.Z[js])]
+      ace = _get_model(calc, at.Z[i], at.Z[j])
       # transform the euclidean to cylindrical coordinates
       env = eucl2cyl(rrij, at.Z[i], at.Z[j], Rs, Zs)
       # evaluate 
-      E += evaluate(ace, env)
+      Eij = evaluate(ace, env)
+      E += Eij.val
    end
-   return E 
+   return E
 end
 
-
-# function evaluate!(B, tmp, V::ACESitePotentialBasis, Rs, Zs, z0) 
-#    # fill!(B, 0)
-#    Bview = (@view B[V.inds[z0]])
-#    evaluate!(Bview, V.models[z0], environment(V, Rs, Zs, z0))
-#    return B 
-# end
 
 function energy(basis::ACEBondPotentialBasis, at::Atoms)
    E = zeros(Float64, length(basis))
    Et = zeros(Float64, length(basis))
    for (i, j, rrij, Js, Rs, Zs) in bonds(at, basis)
       # find the right ace model 
-      is, js = min(i,j), max(i,j)
-      ace = basis.models[(at.Z[is], at.Z[js])]
+      ace = _get_model(basis, at.Z[i], at.Z[j])
       # transform the euclidean to cylindrical coordinates
       env = eucl2cyl(rrij, at.Z[i], at.Z[j], Rs, Zs)
       # evaluate 
       ACE.evaluate!(Et, ace, ACE.ACEConfig(env))
       E += Et 
+   end
+   return E 
+end
+
+
+
+function forces(calc::ACEBondPotential, at::Atoms)
+   F = zeros(SVector{3, Float64}, length(at))
+   for (i, j, rrij, Js, Rs, Zs) in bonds(at, calc)
+      Zi, Zj = at.Z[i], at.Z[j]
+      # find the right ace model 
+      ace = _get_model(calc, Zi, Zj)
+      # transform the euclidean to cylindrical coordinates
+      env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
+      @show typeof(env)
+      # evaluate 
+      dV_cyl = evaluate_d(ace, env)
+      # transform back? 
+      dV_drrij, dV_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
+      # assemble the forces 
+      F[i] -= dV_drrij 
+      F[j] += dV_drrij 
+      for (k, dv) in zip(Js, dV_dRs)
+         F[k] -= dv
+         F[i] += 0.5 * dv 
+         F[j] += 0.5 * dv 
+      end
    end
    return E 
 end

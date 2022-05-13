@@ -34,21 +34,34 @@ Bsel = ACEbonds.SparseBondBasis(; maxorder = 3,
                                   default_maxdeg = maxdeg, 
                                   weight = Dict{Symbol, Float64}(:m => 1.0, :n => 1.0, :k => 1.0, :l => 1.0), 
                                  )
-ACE.init1pspec!(B1p, Bsel)
-length(B1p)
+# ACE.init1pspec!(B1p, Bsel)
+# length(B1p)
 
-basis = PIBasis(B1p, Bsel; isreal=true)
+basis = SymmetricBasis(ACE.Invariant(), B1p, ACE.NoSym(), Bsel; isreal=true)
 @show length(basis)
+
+model = ACE.LinearACEModel(basis)
+θ = ACE.params(model)
+θ = randn(length(θ)) ./ (1:length(θ)).^2
+ACE.set_params!(model, θ)
 
 ##
 
-using ACEbonds: ACEBondPotentialBasis
+using ACEbonds: ACEBondPotentialBasis, ACEBondPotential
 
 zSi = AtomicNumber(:Si)
-models = Dict((zSi, zSi) => basis)
+_bases = Dict((zSi, zSi) => basis)
+_models = Dict((zSi, zSi) => model)
 inds = Dict((zSi, zSi) => 1:length(basis))
-potbasis = ACEBondPotentialBasis(models, inds, cutoff)
+pot = ACEBondPotential(_models, cutoff)
+potbasis = ACEbonds.basis(pot)
+# potbasis = ACEBondPotentialBasis(models, inds, cutoff)
 
 at = rattle!(set_pbc!(bulk(:Si, cubic=true) * 3, false), 0.2)
 
-energy(potbasis, at)
+energy(pot, at) ≈ dot(energy(potbasis, at), θ)
+
+##
+
+forces(pot, at)
+
