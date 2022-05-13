@@ -29,36 +29,36 @@ end
 env = ACEbonds.eucl2cyl(rr0, at.Z[i], at.Z[j], Rs, Zs)
 
 
-## Manual debugging of the bond environments 
+# ## Manual debugging of the bond environments 
 
-using GLMakie, Makie 
+# using GLMakie, Makie 
 
-function plot_bondenv(i, j, Js, at)
-   X = at.X
-   xb = [ X[i][1], X[j][1] ]
-   yb = [ X[i][2], X[j][2] ]
-   zb = [ X[i][3], X[j][3] ]
-   colb = [:red, :red]
+# function plot_bondenv(i, j, Js, at)
+#    X = at.X
+#    xb = [ X[i][1], X[j][1] ]
+#    yb = [ X[i][2], X[j][2] ]
+#    zb = [ X[i][3], X[j][3] ]
+#    colb = [:red, :red]
 
-   Xenv = X[Js[2:end]]
-   xe = [ x[1] for x in Xenv ]
-   ye = [ x[2] for x in Xenv ]
-   ze = [ x[3] for x in Xenv ]
-   cole = [:blue for _ in Xenv]
+#    Xenv = X[Js[2:end]]
+#    xe = [ x[1] for x in Xenv ]
+#    ye = [ x[2] for x in Xenv ]
+#    ze = [ x[3] for x in Xenv ]
+#    cole = [:blue for _ in Xenv]
 
-   Xrest = X[setdiff(1:length(X), union([i,j], Js))]
-   xr = [ x[1] for x in Xrest ]
-   yr = [ x[2] for x in Xrest ]
-   zr = [ x[3] for x in Xrest ]
-   colr = [(:green, 0.3) for _ in Xrest]
+#    Xrest = X[setdiff(1:length(X), union([i,j], Js))]
+#    xr = [ x[1] for x in Xrest ]
+#    yr = [ x[2] for x in Xrest ]
+#    zr = [ x[3] for x in Xrest ]
+#    colr = [(:green, 0.3) for _ in Xrest]
    
-   scene = meshscatter([xb; xe; xr], [yb; ye; yr], [zb; ze; zr], 
-                       color = [colb; cole; colr], 
-                       markersize=0.7)
-   lines!(xb, yb, zb, color=:red, linewidth=10 )     
-   return scene                  
-end
+#    scene = meshscatter([xb; xe; xr], [yb; ye; yr], [zb; ze; zr], 
+#                        color = [colb; cole; colr], 
+#                        markersize=0.7)
+#    lines!(xb, yb, zb, color=:red, linewidth=10 )     
+#    return scene                  
+# end
 
-scene = plot_bondenv(i, j, Js, at);
-window = display(scene)
-# close(window) to close it. 
+# scene = plot_bondenv(i, j, Js, at);
+# window = display(scene)
+# # close(window) to close it. 

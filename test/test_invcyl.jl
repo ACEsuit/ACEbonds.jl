@@ -87,8 +87,13 @@ length(B1p)
 
 ##
 
-basis = PIBasis(B1p, Bsel; isreal=true)
+# basis = PIBasis(B1p, Bsel; isreal=true)
+basis = SymmetricBasis(ACE.Invariant(), B1p, ACE.NoSym(), Bsel; isreal=true)
 @show length(basis)
+
+pot = ACE.LinearACEModel(basis)
+θ = randn(ACE.nparams(pot)) ./ (1:ACE.nparams(pot)).^2
+ACE.set_params!(pot, θ)
 
 ##
 
@@ -96,7 +101,9 @@ rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
 Xenv = ACEbonds.eucl2cyl(rr0, Zi, Zj, Rs, Zs)
 
 evaluate(B1p, Xenv)
-evaluate(basis, ACEConfig(Xenv))
+b = evaluate(basis, ACEConfig(Xenv))
+v = evaluate(pot, ACEConfig(Xenv))
+println_slim(@test (dot(ACE.val.(b), θ) ≈ v.val))
 
 ##
 
@@ -117,7 +124,7 @@ println()
 
 ##
 
-@info("Check derivatives w.r.t. cylindrical coordinates")
+@info("Check derivatives of basis w.r.t. cylindrical coordinates")
 B = evaluate(basis, ACEConfig(Xenv))
 dB = evaluate_d(basis, ACEConfig(Xenv))
 TDX = ACE.dstate_type(Xenv[1])
@@ -126,7 +133,7 @@ for ntest = 1:30
    U = [ randn(TDX) for _ = 1:length(Xenv) ]
    V = randn(length(B)) ./ (1:length(B))
 
-   F = t -> dot(V, evaluate(basis, ACEConfig(Xenv + t * U)))
+   F = t -> dot(V, ACE.val.(evaluate(basis, ACEConfig(Xenv + t * U))))
    dF = t -> ( dB = evaluate_d(basis, ACEConfig(Xenv + t * U)); 
                ACE.contract(sum(V[i] * dB[i, :] for i = 1:length(V)), U) )
    F(0.0)
@@ -138,7 +145,7 @@ println()
 
 ## 
 
-@info("Check derivatives w.r.t. euclidean coordinates")
+@info("Check derivatives of basis w.r.t. euclidean coordinates")
 
 for ntest = 1:30 
    local rr0, Rs, Zs, Xs, Xenv 
@@ -148,13 +155,57 @@ for ntest = 1:30
    V = randn(length(B)) ./ (1:length(B))
 
    julip2ace = t -> ACEConfig(ACEbonds.eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
-   F = t -> dot(V, evaluate(basis, julip2ace(t)))
+   F = t -> dot(V, ACE.val.(evaluate(basis, julip2ace(t))))
 
    dF = t -> begin
          dB = evaluate_d(basis, julip2ace(t))
          dB0, dBenv = ACEbonds.rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dB)
          ACE.contract( sum(V[i] * dBenv[i, :] for i = 1:length(V)), Us) + 
                   dot( sum(V[i] * dB0[i] for i = 1:length(V)), uu0 )
+      end
+
+   print_tf(@test all(ACEbase.Testing.fdtest(F, dF, 0.0; verbose=false)) )
+end
+println()
+
+
+##
+
+@info("Check derivatives of a potential w.r.t. cylindrical coordinates")
+v = evaluate(pot, ACEConfig(Xenv))
+dv = ACE.grad_config(pot, ACEConfig(Xenv))
+TDX = ACE.dstate_type(Xenv[1])
+
+for ntest = 1:30
+   U = [ randn(TDX) for _ = 1:length(Xenv) ]
+
+   F = t -> evaluate(pot, ACEConfig(Xenv + t * U)).val
+   dF = t -> ( dv = ACE.grad_config(pot, ACEConfig(Xenv + t * U)); 
+               ACE.contract(dv, U) )
+   F(0.0)
+   dF(0.0)
+
+   print_tf(@test all(ACEbase.Testing.fdtest(F, dF, 0.0; verbose=false)) )
+end
+println()
+
+##
+
+@info("Check derivatives of potential w.r.t. euclidean coordinates")
+
+for ntest = 1:30 
+   local rr0, Rs, Zs, Xs, Xenv 
+   rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
+   Us = randn(SVector{3, Float64}, length(Rs))
+   uu0 = randn(SVector{3, Float64})
+
+   julip2ace = t -> ACEConfig(ACEbonds.eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
+   F = t -> evaluate(pot, julip2ace(t)).val
+
+   dF = t -> begin
+         dv_cyl = ACE.grad_config(pot, julip2ace(t))
+         dv0, dvenv = ACEbonds.rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dv_cyl)
+         ACE.contract(dvenv, Us) + dot(dv0, uu0 )
       end
 
    print_tf(@test all(ACEbase.Testing.fdtest(F, dF, 0.0; verbose=false)) )

@@ -62,5 +62,6 @@ at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 1), false), 0.2)
 energy(pot, at) ≈ dot(energy(potbasis, at), θ)
 
 ##
+
 JuLIP.Testing.fdtest(pot, at)
 
