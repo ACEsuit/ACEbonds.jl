@@ -72,9 +72,3 @@ println_slim(@test( sum( θ[n] * dB[n, :] for n = 1:length(θ) ) ≈ forces(pot,
 println_slim(@test JuLIP.Testing.fdtest(pot, at))
 
 ##
-
-
-
-
-
-
