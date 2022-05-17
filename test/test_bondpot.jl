@@ -31,8 +31,8 @@ Pk = Scal1pBasis(:rij, nothing, :k, Jr0, "Jk")
 ##
 B1p = Product1pBasis((Cbe, Pk, Rn, El, Zm))
 Bsel = ACEbonds.SparseBondBasis(; maxorder = 3, 
-                                  default_maxdeg = maxdeg, 
-                                  weight = Dict{Symbol, Float64}(:m => 1.0, :n => 1.0, :k => 1.0, :l => 1.0), 
+         default_maxdeg = maxdeg, 
+         weight = Dict{Symbol, Float64}(:m => 1.0, :n => 1.0, :k => 1.0, :l => 1.0), 
                                  )
 # ACE.init1pspec!(B1p, Bsel)
 # length(B1p)
