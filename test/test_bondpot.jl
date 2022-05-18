@@ -72,3 +72,17 @@ println_slim(@test( sum( θ[n] * dB[n, :] for n = 1:length(θ) ) ≈ forces(pot,
 println_slim(@test JuLIP.Testing.fdtest(pot, at))
 
 ##
+
+@info("Finite-difference virial test")
+at = set_pbc!(bulk(:Si, cubic=true) * (2, 1, 1), true)
+JuLIP.set_variablecell!(at, true)
+println_slim(@test JuLIP.Testing.fdtest(pot, at))
+
+at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 1, 1), true), 0.2)
+JuLIP.set_variablecell!(at, true)
+println_slim(@test JuLIP.Testing.fdtest(pot, at))
+
+@info("Virial pt vs basis")
+at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 2), true), 0.2)
+vB = virial(potbasis, at)
+println_slim(@test( sum( θ[n] * vB[n] for n = 1:length(potbasis) ) ≈ virial(pot, at) ))
