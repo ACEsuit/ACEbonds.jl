@@ -17,10 +17,9 @@ end
 
 function pullback_housholderreflection(rr0::SVector{3}) 
    H = housholderreflection(rr0)
-   dH = reshape(ForwardDiff.jacobian(rr -> housholderreflection(rr)[:], rr0), 
-                (3, 9))
-   dHt = dH' 
-   return H, g -> reshape(dHt * g, (3,3))
+   dH = ForwardDiff.jacobian(rr -> housholderreflection(rr)[:], rr0)
+   dHt = SMatrix{3,9}(dH)'
+   return H, g -> SMatrix{3,3}(dHt * SVector{3}(g))
 end
 
 _xyz2rθz(ss) = SVector(sqrt(ss[1]^2 + ss[2]^2), 
