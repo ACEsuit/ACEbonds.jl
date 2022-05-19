@@ -10,4 +10,8 @@ include("bselectors.jl")
 
 include("cylindrical.jl")
 
+include("iterator.jl")
+
+include("bondpot.jl")
+
 end
