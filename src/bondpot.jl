@@ -72,7 +72,7 @@ import ACE: evaluate, evaluate_d, grad_config
 # right cutoffs. 
 bonds(at::Atoms, calc::ACEBondCalc) = 
          bonds( at, calc.cutoff.rcutbond, 
-                calc.cutoff.rcutbond/2 + calc.cutoff.zcutenv, 
+         sqrt((calc.cutoff.rcutbond*.5 + calc.cutoff.zcutenv)^2+calc.cutoff.rcutenv^2), 
                 (r, z) -> env_filter(r, z, calc.cutoff) )
 
 _get_model(calc::ACEBondCalc, zi, zj) = 
