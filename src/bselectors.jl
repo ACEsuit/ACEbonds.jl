@@ -1,45 +1,10 @@
-
-# BondBasisSelector(Bsel::ACE.SparseBasis; 
-#                   isym=:be, bond_weight = 1.0, env_weight = 1.0) = 
-#    ACE.CategorySparseBasis(isym, [:bond, :env];
-#             maxorder = ACE.maxorder(Bsel), 
-#             p = Bsel.p, 
-#             weight = Bsel.weight, 
-#             maxlevels = Bsel.maxlevels,
-#             minorder_dict = Dict( :bond => 1),
-#             maxorder_dict = Dict( :bond => 1),
-#             weight_cat = Dict(:bond => bond_weight, :env=> env_weight) 
-#          )
-
-# function SymmetricBond_basis(ϕ::ACE.AbstractProperty, env::ACE.BondEnvelope, Bsel::ACE.SparseBasis; RnYlm = nothing, bondsymmetry=nothing, kwargs...)
-#    BondSelector =  BondBasisSelector(Bsel; kwargs...)
-#    if RnYlm === nothing
-#        RnYlm = RnYlm_1pbasis(;   r0 = ACE.cutoff_radialbasis(env), 
-#                                            rin = 0.0,
-#                                            trans = PolyTransform(2, ACE.cutoff_radialbasis(env)), 
-#                                            pcut = 2,
-#                                            pin = 0, 
-#                                            kwargs...
-#                                        )
-#    end
-#    filterfun = _->true
-#    if bondsymmetry == "Invariant"
-#       filterfun = ACE.EvenL(:be, [:bond])
-#    end
-#    if bondsymmetry == "Covariant"
-#       filterfun = x -> !(ACE.EvenL(:be, [:bond])(x))
-#    end
-#    Bc = ACE.Categorical1pBasis([:bond, :env]; varsym = :be, idxsym = :be )
-#    B1p =  Bc * RnYlm * env
-#    return ACE.SymmetricBasis(ϕ, B1p, BondSelector; filterfun = filterfun)
-# end
-
+module BondSelectors
 
 import ACE: AbstractSparseBasis, maxorder, Prodb, Onepb, OneParticleBasis, 
             degree 
 import Base: filter 
 
-struct SparseBondBasis <: AbstractSparseBasis
+struct SparseCylindricalBondBasis <: AbstractSparseBasis
    maxorder::Int
    weight::Dict
    maxlevels::Dict
@@ -53,7 +18,7 @@ struct SparseBondBasis <: AbstractSparseBasis
 end
 
 
-@noinline function SparseBondBasis(; 
+@noinline function SparseCylindricalBondBasis(; 
                besym = :be, bondsym = :bond, envsym = :env, ksym = :k,  
                lsym = :l, 
                maxorder = nothing, 
@@ -65,11 +30,11 @@ end
                )
    @show maxorder, default_maxdeg
    if (default_maxdeg != nothing) && (maxlevels == nothing)
-      return SparseBondBasis(maxorder, weight, 
+      return SparseCylindricalBondBasis(maxorder, weight, 
                           Dict("default" => default_maxdeg), 
                           p, besym, bondsym, envsym, ksym, lsym, weight_cat)
    elseif (default_maxdeg == nothing) && (maxlevels != nothing)
-      return SparseBondBasis(maxorder, weight, maxlevels, 
+      return SparseCylindricalBondBasis(maxorder, weight, maxlevels, 
                           p, besym, bondsym, envsym, ksym, lsym, weight_cat)
    else
       @error """Either both or neither optional arguments `maxlevels` and 
@@ -79,14 +44,14 @@ end
 end
 
 
-function Base.filter(b::Onepb, Bsel::SparseBondBasis, basis::OneParticleBasis)
+function Base.filter(b::Onepb, Bsel::SparseCylindricalBondBasis, basis::OneParticleBasis)
    d = degree(b, basis)
    k = b[Bsel.ksym]
    return (k == 1 && b[Bsel.besym] == Bsel.envsym) || 
             (d == k-1 && b[Bsel.besym] == Bsel.bondsym) 
 end
 
-function Base.filter(bb::Prodb, Bsel::SparseBondBasis, basis::OneParticleBasis)
+function Base.filter(bb::Prodb, Bsel::SparseCylindricalBondBasis, basis::OneParticleBasis)
    if length(bb) == 0; return true; end 
    has1bond = count((b[Bsel.besym] == Bsel.bondsym) for b in bb) == 1
    isinvariant = sum( b[Bsel.lsym] for b in bb ) == 0 
@@ -95,15 +60,168 @@ end
 
 # maxorder and maxlevel are inherited from the abstract interface 
 
-level(b::Union{Prodb, Onepb}, Bsel::SparseBondBasis, basis::OneParticleBasis) =
+level(b::Union{Prodb, Onepb}, Bsel::SparseCylindricalBondBasis, basis::OneParticleBasis) =
       cat_weighted_degree(b, Bsel, basis)
 
 
 # Category-weighted degree function
-cat_weighted_degree(b::Onepb, Bsel::SparseBondBasis, basis::OneParticleBasis) =
+cat_weighted_degree(b::Onepb, Bsel::SparseCylindricalBondBasis, basis::OneParticleBasis) =
       degree(b, basis, Bsel.weight) * Bsel.weight_cat[getproperty(b, Bsel.isym)]
 
-cat_weighted_degree(bb::Prodb, Bsel::SparseBondBasis, basis::OneParticleBasis) = (
+cat_weighted_degree(bb::Prodb, Bsel::SparseCylindricalBondBasis, basis::OneParticleBasis) = (
       length(bb) == 0 ? 0.0
                       : norm(cat_weighted_degree.(bb, Ref(Bsel), Ref(basis)), Bsel.p)
       )
+
+
+import ACE: filter
+using ACE, ACEbonds
+using ACE.Utils: RnYlm_1pbasis
+using ACE: CategorySparseBasis
+
+const EllipsoidBondBasis = CategorySparseBasis
+
+function filter(b::ACE.Onepb, Bsel::ACE.CategorySparseBasis, basis::ACE.OneParticleBasis) 
+   return true
+end
+
+function filter(bb, Bsel::ACE.CategorySparseBasis, basis::ACE.OneParticleBasis) 
+   # auxiliary function to count the number of 1pbasis functions in bb 
+   # for which b.isym == s.
+   num_b_is_(s) = sum([(getproperty(b, Bsel.isym) == s) for b in bb])
+
+   # Within category min correlation order constaint:
+   cond_ord_cats_min = all( num_b_is_(s) >= ACE.minorder(Bsel, s)
+                            for s in keys(Bsel.minorder_dict) )
+   # Within category max correlation order constaint:   
+   cond_ord_cats_max = all( num_b_is_(s) <= ACE.maxorder(Bsel, s)
+                            for s in keys(Bsel.maxorder_dict) )
+
+   return cond_ord_cats_min && cond_ord_cats_max
+end
+
+# struct EllipsoidBondBasis <: AbstractSparseBasis
+#    cBsel::CategorySparseBasis
+# end
+
+# # wrapper functions: apply function call to field cBsel
+# maxorder(Bsel::EllipsoidBondBasis, category) = maxorder(Bsel.cBsel, category) 
+
+# minorder(Bsel::EllipsoidBondBasis, category) = minorder(Bsel.cBsel, category)
+
+
+# maxorder(Bsel::EllipsoidBondBasis) = maxorder(Bsel.cBsel)
+
+# maxlevel(ord::Integer, Bsel::EllipsoidBondBasis, basis::OneParticleBasis) = maxlevel(ord, Bsel.cBsel, basis)
+
+# # the other maxorder and maxlevel are inherited from the abstract interface 
+
+
+# filter(bb, Bsel::EllipsoidBondBasis, basis::OneParticleBasis) = filter(bb, Bsel.cBsel, basis)
+
+# level(b::Onepb, Bsel::EllipsoidBondBasis, basis::OneParticleBasis) = level(b, Bsel.cBsel, basis)
+
+# level(bb::Prodb, Bsel::EllipsoidBondBasis, basis::OneParticleBasis)  =  level(bb, Bsel.cBsel, basis)
+
+# # Category-weighted degree function
+# cat_weighted_degree(b::Onepb, Bsel::EllipsoidBondBasis, basis::OneParticleBasis) = cat_weighted_degree(b, Bsel.cBsel, basis) 
+
+# cat_weighted_degree(bb::Prodb, Bsel::EllipsoidBondBasis, basis::OneParticleBasis) = cat_weighted_degree(bb, Bsel.cBsel, basis) 
+      
+
+# function EllipsoidBondBasis(Bsel::ACE.SparseBasis; 
+#    isym=:mube, bond_weight = 1.0,  species =[:X], 
+#    species_minorder_dict = Dict{Symbol,Int64}(), species_maxorder_dict = Dict{Symbol,Int64}(), 
+#    species_weight_cat =  Dict( s => 1.0 for s in species)) 
+#    cBsel= ACE.CategorySparseBasis(isym, cat([:bond],species,dims=1);
+#       maxorder = ACE.maxorder(Bsel), 
+#       p = Bsel.p, 
+#       weight = Bsel.weight, 
+#       maxlevels = Bsel.maxlevels,
+#       minorder_dict = merge(Dict( :bond => 1), species_minorder_dict),
+#       maxorder_dict = merge(Dict( :bond => 1), species_maxorder_dict),
+#       weight_cat = merge(Dict(:bond => bond_weight), species_weight_cat) 
+#    )
+#    return EllipsoidBondBasis(cBsel)
+# end
+
+
+# function EllipsoidBondBasis(;  
+#       maxorder::Integer = nothing, 
+#       p = 1, 
+#       weight = Dict(:l => 1.0, :n => 1.0), 
+#       default_maxdeg = nothing,
+#       maxlevels::Dict{Any, Float64} = nothing,
+#       isym=:mube, bond_weight = 1.0,  species =[:X],
+#       species_minorder_dict = Dict{Any, Float64}(),
+#       species_maxorder_dict = Dict{Any, Float64}(),
+#       species_weight_cat = Dict(c => 1.0 for c in species), 
+#    ) 
+#    # if (default_maxdeg !== nothing) && (maxlevels === nothing )
+#    #    maxlevels = Dict{Any, Float64}("default" => default_maxdeg)
+#    # elseif (maxlevels === nothing)
+#    #    @error """Either both or neither optional arguments `maxlevels` and 
+#    #    `default_maxdeg` were provided. To avoid ambiguity ensure that 
+#    #    exactly one of these arguments is provided."""
+#    # end
+#    Bsel = SparseBasis(;  maxorder = maxorder, 
+#                         p = p, 
+#                         weight = weight, 
+#                         default_maxdeg = default_maxdeg, 
+#                         maxlevels = maxlevels ) 
+#    return EllipsoidBondBasis(Bsel; 
+#       isym=isym, bond_weight = bond_weight,  species = species, 
+#    species_minorder_dict = species_minorder_dict, species_maxorder_dict = species_maxorder_dict, 
+#    species_weight_cat = species_weight_cat) 
+#    # cBsel= ACE.CategorySparseBasis(isym, cat([:bond],species,dims=1);
+#    #    maxorder = maxorder , 
+#    #    p = p, 
+#    #    weight = weight, 
+#    #    maxlevels = maxlevels,
+#    #    minorder_dict = merge(Dict( :bond => 1), species_minorder_dict),
+#    #    maxorder_dict = merge(Dict( :bond => 1), species_maxorder_dict),
+#    #    weight_cat = merge(Dict(:bond => bond_weight), species_weight_cat) 
+#    # )
+#    # return EllipsoidBondBasis(cBsel)
+# end
+
+function EllipsoidBondBasis(Bsel::ACE.SparseBasis; 
+   isym=:mube, bond_weight = 1.0,  species =[:X], 
+   species_minorder_dict = Dict{Symbol,Int64}(), species_maxorder_dict = Dict{Symbol,Int64}(), 
+   species_weight_cat =  Dict( s => 1.0 for s in species)) 
+   return CategorySparseBasis(isym, cat([:bond],species,dims=1);
+      maxorder = ACE.maxorder(Bsel), 
+      p = Bsel.p, 
+      weight = Bsel.weight, 
+      maxlevels = Bsel.maxlevels,
+      minorder_dict = merge(Dict( :bond => 1), species_minorder_dict),
+      maxorder_dict = merge(Dict( :bond => 1), species_maxorder_dict),
+      weight_cat = merge(Dict(:bond => bond_weight), species_weight_cat) 
+   )
+end
+
+
+function EllipsoidBondBasis(;  
+      maxorder::Integer = nothing, 
+      p = 1, 
+      weight = Dict(:l => 1.0, :n => 1.0), 
+      default_maxdeg = nothing,
+      maxlevels::Dict{Any, Float64} = nothing,
+      isym=:mube, bond_weight = 1.0,  species =[:X],
+      species_minorder_dict = Dict{Any, Float64}(),
+      species_maxorder_dict = Dict{Any, Float64}(),
+      species_weight_cat = Dict(c => 1.0 for c in species), 
+   ) 
+   Bsel = SparseBasis(;  maxorder = maxorder, 
+                        p = p, 
+                        weight = weight, 
+                        default_maxdeg = default_maxdeg, 
+                        maxlevels = maxlevels ) 
+   return EllipsoidBondBasis(Bsel; 
+      isym=isym, bond_weight = bond_weight,  species = species, 
+   species_minorder_dict = species_minorder_dict, species_maxorder_dict = species_maxorder_dict, 
+   species_weight_cat = species_weight_cat) 
+end
+
+    
+end

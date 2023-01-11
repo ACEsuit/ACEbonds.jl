@@ -1,18 +1,20 @@
 
 using ACEbonds, ACE, ACEbase, Test, StaticArrays, LinearAlgebra, JuLIP
 using ACEbase.Testing
-using ACEbonds: CylindricalBondEnvelope
+using ACEbonds.BondEnvelopes: CylindricalBondEnvelope
+using ACEbonds.BondSelectors: SparseCylindricalBondBasis
 using ACE: discrete_jacobi, Rn1pBasis, scal1pbasis, Scal1pBasis,
            evaluate, evaluate_d, Trig1pBasis, @λ, 
            Product1pBasis, Categorical1pBasis, SimpleSparseBasis, 
            SymmetricBasis, Invariant, PIBasis
 
+using ACEbonds.BondEnvironments: housholderreflection, eucl2cyl, rand_env, rrule_eucl2cyl
 ## basics 
 
 @info("Test housholderreflection")
 for _ = 1:15
    rr0 = randn(SVector{3, Float64})
-   H = ACEbonds.housholderreflection(rr0)
+   H = housholderreflection(rr0)
    print_tf(@test( H * rr0 ≈ norm(rr0) * [0,0,1] ))
    print_tf(@test( H' * [0,0,1] ≈ rr0/norm(rr0) ))
    print_tf(@test H' * H ≈ I)
@@ -24,14 +26,14 @@ println()
 @info("Test housholderreflection near the poles")
 for _ = 1:15
    rr0 = SVector{3}([0, 0, 1]) + 1e-15 * randn(SVector{3, Float64})
-   H = ACEbonds.housholderreflection(rr0)
+   H = housholderreflection(rr0)
    print_tf(@test( H * rr0 ≈ norm(rr0) * [0,0,1] ))
    print_tf(@test( H' * [0,0,1] ≈ rr0/norm(rr0) ))
    print_tf(@test H' * H ≈ I)
 end
 println()
 
-println_slim(@test( ACEbonds.housholderreflection(SVector{3, Float64}([0, 0, 1])) == I ))
+println_slim(@test( housholderreflection(SVector{3, Float64}([0, 0, 1])) == I ))
 
 ##
 
@@ -47,8 +49,8 @@ rcut = 4.0
 zcut = 2.0 
 
 for ntest = 1:30 
-   rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
-   Xenv = ACEbonds.eucl2cyl(rr0, Zi, Zj, Rs, Zs)
+   rr0, Zi, Zj, Rs, Zs, Xs = rand_env(r0cut, rcut, zcut)
+   Xenv = eucl2cyl(rr0, Zi, Zj, Rs, Zs)
    print_tf(@test( all(Xenv[2:end] .≈ Xs) ))
 end
 println()
@@ -78,7 +80,7 @@ B1p = Product1pBasis((Cbe, Pk, Rn, El, Zm))
 
 ##
 B1p = Product1pBasis((Cbe, Pk, Rn, El, Zm))
-Bsel = ACEbonds.SparseBondBasis(; maxorder = 3, 
+Bsel = SparseCylindricalBondBasis(; maxorder = 3, 
                                   default_maxdeg = maxdeg, 
                                   weight = Dict{Symbol, Float64}(:m => 1.0, :n => 1.0, :k => 1.0, :l => 1.0), 
                                  )
@@ -97,8 +99,8 @@ ACE.set_params!(pot, θ)
 
 ##
 
-rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
-Xenv = ACEbonds.eucl2cyl(rr0, Zi, Zj, Rs, Zs)
+rr0, Zi, Zj, Rs, Zs, Xs = rand_env(r0cut, rcut, zcut)
+Xenv = eucl2cyl(rr0, Zi, Zj, Rs, Zs)
 
 evaluate(B1p, Xenv)
 b = evaluate(basis, ACEConfig(Xenv))
@@ -110,13 +112,13 @@ println_slim(@test (dot(ACE.val.(b), θ) ≈ v.val))
 @info("Test invariance of the new basis")
 for ntest = 1:30
    local rr0, Rs, Zs, Xs, Xenv, Zi, Zj
-   rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
-   Xenv = ACEbonds.eucl2cyl(rr0, Zi, Zj, Rs, Zs)
+   rr0, Zi, Zj, Rs, Zs, Xs = rand_env(r0cut, rcut, zcut)
+   Xenv = eucl2cyl(rr0, Zi, Zj, Rs, Zs)
    B1 = evaluate(basis, ACEConfig(Xenv))
    Q = ACE.Random.rand_rot()
    rr0_Q = Q * rr0 
    Rs_Q = Ref(Q) .* Rs
-   Xenv_Q = ACEbonds.eucl2cyl(rr0_Q, Zi, Zj, Rs_Q, Zs)
+   Xenv_Q = eucl2cyl(rr0_Q, Zi, Zj, Rs_Q, Zs)
    B2 = evaluate(basis, ACEConfig(Xenv_Q))
    print_tf(@test( B1 ≈ B2 && !all(Xenv_Q .≈ Xenv) ))
 end
@@ -149,17 +151,17 @@ println()
 
 for ntest = 1:30 
    local rr0, Rs, Zs, Xs, Xenv, Zi, Zj 
-   rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
+   rr0, Zi, Zj, Rs, Zs, Xs = rand_env(r0cut, rcut, zcut)
    Us = randn(SVector{3, Float64}, length(Rs))
    uu0 = randn(SVector{3, Float64})
    V = randn(length(B)) ./ (1:length(B))
 
-   julip2ace = t -> ACEConfig(ACEbonds.eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
+   julip2ace = t -> ACEConfig(eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
    F = t -> dot(V, ACE.val.(evaluate(basis, julip2ace(t))))
 
    dF = t -> begin
          dB = evaluate_d(basis, julip2ace(t))
-         dB0, dBenv = ACEbonds.rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dB)
+         dB0, dBenv = rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dB)
          ACE.contract( sum(V[i] * dBenv[i, :] for i = 1:length(V)), Us) + 
                   dot( sum(V[i] * dB0[i] for i = 1:length(V)), uu0 )
       end
@@ -195,16 +197,16 @@ println()
 
 for ntest = 1:30 
    local rr0, Rs, Zs, Xs, Xenv, Zi, Zj 
-   rr0, Zi, Zj, Rs, Zs, Xs = ACEbonds.rand_env(r0cut, rcut, zcut)
+   rr0, Zi, Zj, Rs, Zs, Xs = rand_env(r0cut, rcut, zcut)
    Us = randn(SVector{3, Float64}, length(Rs))
    uu0 = randn(SVector{3, Float64})
 
-   julip2ace = t -> ACEConfig(ACEbonds.eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
+   julip2ace = t -> ACEConfig(eucl2cyl(rr0 + t * uu0, Zi, Zj, Rs + t * Us, Zs))
    F = t -> evaluate(pot, julip2ace(t)).val
 
    dF = t -> begin
          dv_cyl = ACE.grad_config(pot, julip2ace(t))
-         dv0, dvenv = ACEbonds.rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dv_cyl)
+         dv0, dvenv = rrule_eucl2cyl(rr0, Zi, Zj, Rs, Zs, dv_cyl)
          ACE.contract(dvenv, Us) + dot(dv0, uu0 )
       end
 

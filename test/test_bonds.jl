@@ -1,6 +1,6 @@
 using ACEbonds, ACE, ACEbase, Test, StaticArrays, LinearAlgebra
 using ACEbase.Testing
-using ACEbonds: CylindricalBondEnvelope, EllipsoidBondEnvelope
+using ACEbonds.BondEnvelopes: CylindricalBondEnvelope, EllipsoidBondEnvelope
 using ACE: State
 using ACE.Random: rand_rot, rand_refl
 

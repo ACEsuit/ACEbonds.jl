@@ -10,7 +10,7 @@ function housholderreflection(rr0::SVector{3})
    if r0 == 0
       return I3x3
    end
-   v = SVector(0, 0, 1) - rr0/r0 
+   v = SVector(0, 0, 1) - rr0/r0  # MS: Why is there SVector(0, 0, 1) ? 
    v̂ = v / (norm(v) + eps(eltype(rr0))^2)
    return I3x3 - 2 * v̂ * v̂' 
 end
@@ -181,7 +181,7 @@ function rand_env(r0cut, rcut, zcut; Nenv = 10, species = [:Al, :Ti])
    r0 = 1 + rand() 
    rr0 = randn(SVector{3, Float64})
    rr0 = r0 * (rr0/norm(rr0))
-   H = ACEbonds.housholderreflection(rr0)
+   H = housholderreflection(rr0)
    Rs = SVector{3, Float64}[] 
    Zs = AtomicNumber[] 
    Xcyl = [] 
