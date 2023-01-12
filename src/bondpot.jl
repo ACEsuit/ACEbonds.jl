@@ -1,5 +1,5 @@
 
-using ACEbonds.BondEnvironments: env_transform, rrule_env_transform, env_filter, AbstractBondEnvironment
+using ACEbonds.BondCutoffs: env_transform, rrule_env_transform, env_filter, AbstractBondCutoff
 
 import ACE: params, nparams, set_params!
 
@@ -8,14 +8,14 @@ export params, nparams, set_params!
 
 struct ACEBondPotential{TM} <: AbstractCalculator
    models::Dict{Tuple{AtomicNumber, AtomicNumber}, TM}
-   cutoff::AbstractBondEnvironment{Float64}
+   cutoff::AbstractBondCutoff{Float64}
 end
 
 
 struct ACEBondPotentialBasis{TM} <: JuLIP.MLIPs.IPBasis
    models::Dict{Tuple{AtomicNumber, AtomicNumber}, TM}  # model = basis
    inds::Dict{Tuple{AtomicNumber, AtomicNumber}, UnitRange{Int}}
-   cutoff::AbstractBondEnvironment{Float64}
+   cutoff::AbstractBondCutoff{Float64}
 end
 
 function basis(V::ACEBondPotential)

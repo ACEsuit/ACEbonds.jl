@@ -8,7 +8,7 @@ using ACE: discrete_jacobi, Rn1pBasis, scal1pbasis, Scal1pBasis,
            Product1pBasis, Categorical1pBasis, SimpleSparseBasis, 
            SymmetricBasis, Invariant, PIBasis
 
-using ACEbonds.BondEnvironments: housholderreflection, eucl2cyl, rand_env, rrule_eucl2cyl
+using ACEbonds.BondCutoffs: housholderreflection, eucl2cyl, rand_env, rrule_eucl2cyl
 ## basics 
 
 @info("Test housholderreflection")

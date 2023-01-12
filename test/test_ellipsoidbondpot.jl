@@ -1,6 +1,6 @@
 using ACEbonds, ACE, ACEbase, Test, StaticArrays, LinearAlgebra, JuLIP
 using ACEbase.Testing
-using ACEbonds.BondEnvironments: EllipsoidCutoff
+using ACEbonds.BondCutoffs: EllipsoidCutoff
 using ACE: discrete_jacobi, Rn1pBasis, scal1pbasis, Scal1pBasis,
            evaluate, evaluate_d, Trig1pBasis, @λ, 
            Product1pBasis, Categorical1pBasis, SimpleSparseBasis, 

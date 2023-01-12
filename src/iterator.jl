@@ -4,9 +4,9 @@ using JuLIP.Potentials: neigsz
 using JuLIP: Atoms
 # using ACE: BondEnvelope, filter, State, CylindricalBondEnvelope
 
-using ACEbonds.BondEnvironments: AbstractBondEnvironment, env_cutoff, env_filter
+using ACEbonds.BondCutoffs: AbstractBondCutoff, env_cutoff, env_filter
 
-bonds(at::Atoms, env::AbstractBondEnvironment, args...) = 
+bonds(at::Atoms, env::AbstractBondCutoff, args...) = 
          bonds( at, env.rcutbond, env_cutoff(env), 
                        (r, z) -> env_filter(r, z, env), args...)
 

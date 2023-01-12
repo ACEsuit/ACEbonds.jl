@@ -3,7 +3,7 @@
 using ACEatoms, JuLIP
 using ACEbonds
 using ACE
-using ACEbonds.BondEnvironments: EllipsoidCutoff, env_transform
+using ACEbonds.BondCutoffs: EllipsoidCutoff, env_transform
 using ACEbonds: bonds
 using ACEbase.Testing
 

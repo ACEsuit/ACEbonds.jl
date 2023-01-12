@@ -1,4 +1,4 @@
-module BondEnvironments
+module BondCutoffs
 
 # export AbstractCutoff, EllipsoidCutoff, SphericalCutoff, DSphericalCutoff
 # export env_filter, env_transform, env_cutoff
@@ -13,35 +13,35 @@ using LinearAlgebra: norm, I
 
 
 """
-Every concrete subtype ConcreteBondEnvironment{T} <: AbstractBondEnvironment{T} must implement functions 
+Every concrete subtype ConcreteBondCutoff{T} <: AbstractBondCutoff{T} must implement functions 
 
-env_filter(r::T, z::T, env::ConcreteBondEnvironment)::Bool where {T<:Real} 
+env_filter(r::T, z::T, env::ConcreteBondCutoff)::Bool where {T<:Real} 
 
 that returns `true` exactly if an atom with cylindrical coordinates r, z, θ (relative to center of bond) is contained in the bond environment
 
 env_transform(rrij::SVector, Zi::AtomicNumber, Zj::AtomicNumber, Rs::AbstractVector{<: SVector}, Zs::AbstractVector{<: AtomicNumber}, 
-    env::ConcreteBondEnvironment)
+    env::ConcreteBondCutoff)
 
 that transforms local coordinates into a format that is suitable for evaluyation by an (ACE) calculater.   
 
 rrule_env_transform(rrij::SVector, Zi::AtomicNumber, Zj::AtomicNumber, Rs::AbstractVector{<: SVector}, Zs::AbstractVector{<: AtomicNumber}, 
-    env::ConcreteBondEnvironment)
+    env::ConcreteBondCutoff)
 
 that implements backward rrule associated with the transformation of env_transform. 
 
-env_cutoff(env::ConcreteBondEnvironment) 
+env_cutoff(env::ConcreteBondCutoff) 
 
 that returns the maximum distance between a bond atom and a point in the environment / on the bond environment's surface.
 
 Optionally, the following function might also be implemented. 
 
-env_radius(env::ConcreteBondEnvironment) 
+env_radius(env::ConcreteBondCutoff) 
 
 returns the maximum distance between the bond center and a point in the environment / on the bond environment's surface.
 
 
 """
-abstract type AbstractBondEnvironment{T} end
+abstract type AbstractBondCutoff{T} end
 
 """
 This implements a cylindrical cutoff for the bond environments: 
@@ -52,7 +52,7 @@ the environment if - after transformation to (r, θ, z) coordinates, it satisfie
 
 This struct implements the resulting filter under `env_filter`. 
 """
-struct CylindricalCutoff{T} <: AbstractBondEnvironment{T}
+struct CylindricalCutoff{T} <: AbstractBondCutoff{T}
    rcutbond::T 
    rcutenv::T
    zcutenv::T
@@ -83,7 +83,7 @@ rrule_env_transform(rrij::SVector, Zi, Zj,
 
 include("cylindrical_trans.jl") # contains rrules for eucl2cycl and other auxiliary functions
 
-struct EllipsoidCutoff{T} <: AbstractBondEnvironment{T}
+struct EllipsoidCutoff{T} <: AbstractBondCutoff{T}
     rcutbond::T 
     rcutenv::T
     zcutenv::T

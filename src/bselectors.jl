@@ -76,7 +76,7 @@ cat_weighted_degree(bb::Prodb, Bsel::SparseCylindricalBondBasis, basis::OneParti
 """
 Constructors of this alias of ACE.CategorySparseBasis can be used to conveniently create 
 basis selectors for ACE bond bases that are defined on ellipsoid-shaped bond environments 
-implmeneted as `EllipsoidCutoff` in the sub-module `ACEbonds.BondEnvironments``. 
+implmeneted as `EllipsoidCutoff` in the sub-module `ACEbonds.BondCutoffs``. 
 """
 const EllipsoidBondBasis = CategorySparseBasis
 
