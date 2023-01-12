@@ -59,6 +59,13 @@ pot = ACEBondPotential(_models, cutoff)
 potbasis = ACEbonds.basis(pot)
 # potbasis = ACEBondPotentialBasis(models, inds, cutoff)
 
+@info("Test parameter setter and getter functions")
+θ1 = params(pot)
+set_params!(pot,θ1)
+println_slim(@test all(θ1 .== params(pot)))
+
+
+
 at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 1), false), 0.2)
 
 ##

@@ -1,23 +1,10 @@
 
-using ACEbonds.BondEnvironments: env_transform, rrule_env_transform, env_filter, CylindricalCutoff, AbstractBondEnvironment
-# """
-# This implements a cylindrical cutoff for the bond environments: 
-# * A central bond (i,j) is within the cutoff if r_ij < rcutbond. 
-# * A neighbour atom at position rkij (relative position to midpoint) is within 
-# the environment if - after transformation to (r, θ, z) coordinates, it satisfies
-# `r <= rcutenv` and `abs(z) <= zcutenv`.
+using ACEbonds.BondEnvironments: env_transform, rrule_env_transform, env_filter, AbstractBondEnvironment
 
-# This struct implements the resulting filter under `env_filter`. 
-# """
-# struct CylindricalCutoff{T}
-#    rcutbond::T 
-#    rcutenv::T
-#    zcutenv::T
-# end
+import ACE: params, nparams, set_params!
 
-# env_filter(r, z, cutoff::CylindricalCutoff) = 
-#       (r <= cutoff.rcutenv) && (abs(z) <= cutoff.zcutenv)
-
+export params, nparams, set_params!
+# TODO: extend implementation to allow for LinearModels with multiple featuers. 
 
 struct ACEBondPotential{TM} <: AbstractCalculator
    models::Dict{Tuple{AtomicNumber, AtomicNumber}, TM}
@@ -31,8 +18,40 @@ struct ACEBondPotentialBasis{TM} <: JuLIP.MLIPs.IPBasis
    cutoff::AbstractBondEnvironment{Float64}
 end
 
+function basis(V::ACEBondPotential)
+   models = Dict( [zz => model.basis for (zz, model) in V.models]... )
+   inds = _get_basisinds(V)
+   return ACEBondPotentialBasis(models, inds, V.cutoff)
+end
 
 ACEBondCalc = Union{ACEBondPotential, ACEBondPotentialBasis}
+
+function params(calc::ACEBondPotential) 
+   θ = zeros(nparams(calc))
+   inds = _get_basisinds(calc)
+   for zz in keys(inds)
+       m = _get_model(calc, zz[1],zz[2])
+       θ[inds[zz]] = params(m) 
+   end
+   return θ
+end
+
+function set_params!(calc::ACEBondPotential, θ)
+   inds =  _get_basisinds(calc)
+   for zz in keys(calc.models)
+      ACE.set_params!(calc, zz, θ[inds[zz]])
+   end
+end
+
+function set_params!(calc::ACEBondPotential, zz::Tuple{AtomicNumber,AtomicNumber}, θ)
+   set_params!(_get_model(calc, zz[1], zz[2]),θ)
+end
+
+nparams(V::ACEBondPotential) = sum(length(inds) for (_, inds) in _get_basisinds(V))
+
+
+Base.length(basis::ACEBondPotentialBasis) = 
+      sum(length(inds) for (_, inds) in basis.inds)
 
 
 function _get_basisinds(V::ACEBondPotential)
@@ -50,31 +69,16 @@ end
 
 _get_basisinds(V::ACEBondPotentialBasis) = V.inds
 
-function basis(V::ACEBondPotential)
-   models = Dict( [zz => model.basis for (zz, model) in V.models]... )
-   inds = _get_basisinds(V)
-   return ACEBondPotentialBasis(models, inds, V.cutoff)
-end
-
-# TODO: 
-#   - nparams 
-#   - get_params
-#   - set_params! 
-
-Base.length(basis::ACEBondPotentialBasis) = 
-      sum(length(inds) for (_, inds) in basis.inds)
-
 # --------------------------------------------------------
 
 import JuLIP: energy, forces, virial 
 import ACE: evaluate, evaluate_d, grad_config
 
+
 # overload the initiation of the bonds iterator to correctly extract the 
 # right cutoffs. 
-bonds(at::Atoms, calc::ACEBondCalc) = 
-         bonds( at, calc.cutoff.rcutbond, 
-         sqrt((calc.cutoff.rcutbond*.5 + calc.cutoff.zcutenv)^2+calc.cutoff.rcutenv^2), 
-                (r, z) -> env_filter(r, z, calc.cutoff) )
+bonds(at::Atoms, calc::ACEBondCalc, args...) = bonds(at, calc.cutoff, args...) 
+
 
 _get_model(calc::ACEBondCalc, zi, zj) = 
       calc.models[(min(zi, zj), max(zi,zj))]

@@ -38,17 +38,6 @@ model = ACE.LinearACEModel(basis)
 ACE.set_params!(model, θ)
 
 ##
-using ACEbonds.BondEnvironments: pullback_skewedhousholderreflection, skewedhousholderreflection
-using ACEbonds.BondEnvironments: pullback_housholderreflection, housholderreflection
-rr0 = SVector{3}(1.0,1.5,2.0)
-housholderreflection(rr0)
-H, pH = pullback_housholderreflection(rr0)
-pH(rr0)
-
-skewedhousholderreflection(rr0, 1.2,1.0)
-H, pH = pullback_skededhousholderreflection(rr0, 1.2,1.0)
-pH(rr0)
-
 using ACEbonds: ACEBondPotentialBasis, ACEBondPotential
 
 zSi = AtomicNumber(:Si)
@@ -58,6 +47,12 @@ inds = Dict((zSi, zSi) => 1:length(basis))
 pot = ACEBondPotential(_models, cutoff)
 potbasis = ACEbonds.basis(pot)
 # potbasis = ACEBondPotentialBasis(models, inds, cutoff)
+
+@info("Test parameter setter and getter functions")
+θ1 = params(pot)
+set_params!(pot,θ1)
+println_slim(@test all(θ1 .== params(pot)))
+
 
 at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 1), false), 0.2)
 

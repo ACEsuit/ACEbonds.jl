@@ -3,15 +3,45 @@ module BondEnvironments
 # export AbstractCutoff, EllipsoidCutoff, SphericalCutoff, DSphericalCutoff
 # export env_filter, env_transform, env_cutoff
 
-using StaticArrays
-using JuLIP: AtomicNumber, chemical_symbol
 using ACE
+using ACE: State, DState, ForwardDiff
+using JuLIP: AtomicNumber, chemical_symbol
+using StaticArrays
 using LinearAlgebra: norm, I
-using ACEbase: evaluate, evaluate!
 
+
+
+
+"""
+Every concrete subtype ConcreteBondEnvironment{T} <: AbstractBondEnvironment{T} must implement functions 
+
+env_filter(r::T, z::T, env::ConcreteBondEnvironment)::Bool where {T<:Real} 
+
+that returns `true` exactly if an atom with cylindrical coordinates r, z, θ (relative to center of bond) is contained in the bond environment
+
+env_transform(rrij::SVector, Zi::AtomicNumber, Zj::AtomicNumber, Rs::AbstractVector{<: SVector}, Zs::AbstractVector{<: AtomicNumber}, 
+    env::ConcreteBondEnvironment)
+
+that transforms local coordinates into a format that is suitable for evaluyation by an (ACE) calculater.   
+
+rrule_env_transform(rrij::SVector, Zi::AtomicNumber, Zj::AtomicNumber, Rs::AbstractVector{<: SVector}, Zs::AbstractVector{<: AtomicNumber}, 
+    env::ConcreteBondEnvironment)
+
+that implements backward rrule associated with the transformation of env_transform. 
+
+env_cutoff(env::ConcreteBondEnvironment) 
+
+that returns the maximum distance between a bond atom and a point in the environment / on the bond environment's surface.
+
+Optionally, the following function might also be implemented. 
+
+env_radius(env::ConcreteBondEnvironment) 
+
+returns the maximum distance between the bond center and a point in the environment / on the bond environment's surface.
+
+
+"""
 abstract type AbstractBondEnvironment{T} end
-
-include("cylindrical.jl")
 
 """
 This implements a cylindrical cutoff for the bond environments: 
@@ -28,8 +58,11 @@ struct CylindricalCutoff{T} <: AbstractBondEnvironment{T}
    zcutenv::T
 end
 
-env_filter(r, z, cutoff::CylindricalCutoff) = 
-      (r <= cutoff.rcutenv) && (abs(z) <= cutoff.zcutenv)
+env_filter(r, z, cutoff::CylindricalCutoff) = (r <= cutoff.rcutenv) && (abs(z) <= cutoff.zcutenv)
+
+env_cutoff(env::CylindricalCutoff) = sqrt((env.rcutbond*.5 + env.zcutenv)^2+env.rcutenv^2)
+
+env_radius(env::CylindricalCutoff) = sqrt(env.zcutenv^2+env.rcutenv^2)
 
 env_transform(rrij::SVector, Zi, Zj, 
       Rs::AbstractVector{<: SVector}, 
@@ -41,45 +74,27 @@ rrule_env_transform(rrij::SVector, Zi, Zj,
                 Zs::AbstractVector{<: AtomicNumber}, 
                 g_cyl::AbstractMatrix{<: DState},
                 ::CylindricalCutoff )  = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, g_cyl)
+
 rrule_env_transform(rrij::SVector, Zi, Zj, 
                 Rs::AbstractVector{<: SVector}, 
                 Zs::AbstractVector{<: AtomicNumber}, 
                 dV_cyl::AbstractVector{<: DState}, 
                 ::CylindricalCutoff) = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
 
+include("cylindrical_trans.jl") # contains rrules for eucl2cycl and other auxiliary functions
 
 struct EllipsoidCutoff{T} <: AbstractBondEnvironment{T}
     rcutbond::T 
     rcutenv::T
     zcutenv::T
-    end
+end
 
 env_filter(r, z, cutoff::EllipsoidCutoff) = ((z/cutoff.zcutenv)^2 +(r/cutoff.rcutenv)^2 <= 1)
-env_cutoff(ec::EllipsoidCutoff) = ec.zcutenv + ec.rcutenv 
 
-# function env_transform(rrij::SVector, Zi, Zj, 
-#     Rs::AbstractVector{<: SVector}, 
-#     Zs::AbstractVector{<: AtomicNumber}, 
-#     ec::EllipsoidCutoff)
-#     rij = norm(rrij)
+env_cutoff(env::EllipsoidCutoff) = max(env.rcutbond*.5 + env.zcutenv, sqrt(env.rcutenv^2+(.5*env.rcutbond)^2))
 
-#     #Y0 = State( rr = rrij/ec.rcutbond, be = :bond,  mu = AtomicNumber(0)) # Atomic species of bond atoms does not matter at this stage.
-#     Y0 = State( rr = rrij/ec.rcutbond, mube = :bond) # Atomic species of bond atoms does not matter at this stage.
-#     cfg = Vector{typeof(Y0)}(undef, length(Rs)+1)
-#     cfg[1] = Y0
-#     trans = _ellipse_inv_transform(rrij,rij, ec)
-#     for i = eachindex(Rs)
-#         #cfg[i+1] = State(rr = trans(Rs[i]), be = :env,  mu = Zs[i])
-#         cfg[i+1] = State(rr = trans(Rs[i]), mube = chemical_symbol(Zs[i]))
-#     end
-#     return cfg 
-# end
+env_radius(ec::EllipsoidCutoff) = max(ec.zcutenv, ec.rcutenv)
 
-# function _ellipsoid2sphere(rrij::SVector, rij::T, ec::EllipsoidCutoff) where {T<:Real}
-#     rTr = rrij * transpose(rrij)/rij^2
-#     G = SMatrix{3,3}(rTr/ec.zcutenv + (I - rTr)/ec.rcutenv)
-#     return r -> G * r
-# end
 
 env_transform(rrij::SVector, Zi, Zj, 
     Rs::AbstractVector{<: SVector}, 
@@ -105,90 +120,8 @@ rrule_env_transform(rrij::SVector, Zi, Zj,
                                             ec.zcutenv, ec.rcutenv, ec.rcutbond)
             
 
-function skewedhousholderreflection(rr0::SVector{3}, zc::T, rc::T) where {T<:Real}
-    r02 = sum(rr0.^2)
-    if r02 == 0
-        return SMatrix{3,3}(1.0/rcutbond*I)
-    end
-    zc_inv, rc_inv = 1.0 ./zc, 1.0 ./ rc 
-    return SMatrix{3,3}(rc_inv * I + (zc_inv - rc_inv)/r02 * rr0 * transpose(rr0) )
-end
-
-function pullback_skewedhousholderreflection(rr0::SVector{3}, zc::T, rc::T) where {T<:Real}
-    H = skewedhousholderreflection(rr0,zc,rc)
-    sf(rr) = skewedhousholderreflection(rr,zc,rc)
-    dH = ForwardDiff.jacobian(rr -> sf(rr)[:], rr0)
-    dHt = SMatrix{3,9}(dH)'
-    return H, g -> SMatrix{3,3}(dHt * SVector{3}(g))
- end
+include("ellipsoid_trans.jl") # contains rrules for ellipsoid2sphere and other auxiliary functions
 
 
-function ellipsoid2sphere(rrij::SVector, Zi, Zj, 
-    Rs::AbstractVector{<: SVector}, 
-    Zs::AbstractVector{<: AtomicNumber}, zcutenv::T, rcutenv::T, rcutbond::T) where {T<:Real}
-    @assert length(Rs) == length(Zs)
-    G = skewedhousholderreflection(rrij,zcutenv, rcutenv)
-
-    Y0 = State( rr = rrij/rcutbond, mube = :bond) # Atomic species of bond atoms does not matter at this stage.
-    cfg = Vector{typeof(Y0)}(undef, length(Rs)+1)
-    cfg[1] = Y0
-    for i = eachindex(Rs)
-        cfg[i+1] = State(rr = G * Rs[i], mube = chemical_symbol(Zs[i]))
-    end
-    return cfg 
-end
-
-function rrule_ellipsoid2sphere(rr0::SVector, Zi, Zj, 
-    Rs::AbstractVector{<: SVector}, 
-    Zs::AbstractVector{<: AtomicNumber}, 
-    g_ell::AbstractMatrix{<: DState}, 
-    zcutenv::T, rcutenv::T, rcutbond::T) where {T<:Real}
-    lenB = size(g_ell, 1)
-    lenR = length(Rs)
-    @assert size(g_ell, 2) == lenR + 1 
-    H = skewedhousholderreflection(rr0,zcutenv,rcutenv)
-    H, pbH = pullback_skewedhousholderreflection(rr0, zcutenv, rcutenv)
-
-    g_Rs = zeros(SVector{3, Float64}, lenB, lenR)
-    # g_ell[:, 1] = derivative w.r.t. rr0 only
-    g_rr0 = [ g_ell[n, 1].rr / rcutbond for n = 1:lenB ]
-
-    for j = 1:lenR
-        rrj = Rs[j] 
-        for n = 1:lenB
-            gj = g_ell[n, j+1].rr
-            g_rr0[n] += pbH(gj)' * rrj
-            g_Rs[n, j] = H' * gj
-        end
-    end
-
-    return g_rr0, g_Rs 
-end
-
-function rrule_ellipsoid2sphere(rr0::SVector, Zi, Zj, 
-                Rs::AbstractVector{<: SVector}, 
-                Zs::AbstractVector{<: AtomicNumber}, 
-                g_ell::AbstractVector{<: DState}, 
-                zcutenv::T, rcutenv::T, rcutbond::T) where {T<:Real}
-    lenR = length(Rs)
-    @assert length(g_ell) == lenR + 1
-    H = skewedhousholderreflection(rr0,zcutenv,rcutenv)
-    H, pbH = pullback_skewedhousholderreflection(rr0, zcutenv, rcutenv)
-    r̂0 = rr0 / norm(rr0) # ∇f(r0) = f'(r0) * r̂0
-
-    g_Rs = zeros(SVector{3, Float64}, lenR)
-    # deriv. of first element w.r.t. rr0 only 
-    g_rr0 = g_ell[1].rr / rcutbond 
-    for j = 1:lenR
-        rrj = Rs[j] 
-        gj = g_ell[j+1].rr
-        #gj1 = J' * SVector(gj.r, gj.θ, gj.z)
-        #@show gj
-        g_rr0 += pbH(gj)' * rrj
-        g_Rs[j] = H' * gj
-    end
-
-    return g_rr0, g_Rs 
-end
 
 end

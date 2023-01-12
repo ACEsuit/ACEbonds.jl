@@ -1,9 +1,3 @@
-
-using ACE: State, DState, ForwardDiff
-using StaticArrays
-# using NamedTupleTools 
-using JuLIP: AtomicNumber 
-
 function housholderreflection(rr0::SVector{3}) 
    r0 = norm(rr0)
    I3x3 = SMatrix{3,3}(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
