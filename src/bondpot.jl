@@ -89,7 +89,6 @@ function energy(calc::ACEBondPotential, at::Atoms)
       # find the right ace model 
       ace = _get_model(calc, at.Z[i], at.Z[j])
       # transform the euclidean to cylindrical coordinates
-      #env = eucl2cyl(rrij, at.Z[i], at.Z[j], Rs, Zs)
       env = env_transform(rrij, at.Z[i], at.Z[j], Rs, Zs, calc.cutoff)
       # evaluate 
       Eij = evaluate(ace, env)
@@ -106,14 +105,11 @@ function forces(calc::ACEBondPotential, at::Atoms)
       # find the right ace model 
       ace = _get_model(calc, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
-      #env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
       env = env_transform(rrij, Zi, Zj, Rs, Zs, calc.cutoff)
       # evaluate 
       dV_cyl = grad_config(ace, env)
-      #@show dV_cyl
       # transform back? 
       dV_drrij, dV_dRs = rrule_env_transform(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl, calc.cutoff)
-      #rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
       # assemble the forces 
       F[i] += dV_drrij 
       F[j] -= dV_drrij 
@@ -139,12 +135,10 @@ function virial(calc::ACEBondPotential, at::Atoms{T}) where {T}
       # find the right ace model for this bond 
       ace = _get_model(calc, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
-      #env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
       env = env_transform(rrij, Zi, Zj, Rs, Zs, calc.cutoff)
       # evaluate 
       dV_cyl = grad_config(ace, env)
       # transform back? 
-      #dV_drrij, dV_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl)
       dV_drrij, dV_dRs = rrule_env_transform(rrij::SVector, Zi, Zj, Rs, Zs, dV_cyl, calc.cutoff)
       # assemble the virial  
       #   dV_dRs contain derivative relative to midpoint 
@@ -166,7 +160,6 @@ function energy(basis::ACEBondPotentialBasis, at::Atoms)
       # find the right ace model 
       ace = _get_model(basis, at.Z[i], at.Z[j])
       # transform the euclidean to cylindrical coordinates
-      #env = eucl2cyl(rrij, at.Z[i], at.Z[j], Rs, Zs)
       env = env_transform(rrij, at.Z[i], at.Z[j], Rs, Zs, basis.cutoff)
       # evaluate 
       ACE.evaluate!(Et, ace, ACE.ACEConfig(env))
@@ -183,12 +176,10 @@ function forces(basis::ACEBondPotentialBasis, at::Atoms)
       # find the right ace model 
       ace = _get_model(basis, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
-      # env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
       env = env_transform(rrij, Zi, Zj, Rs, Zs, basis.cutoff)
       # evaluate 
       dB_cyl = evaluate_d(ace, env)
       # transform back? 
-      # dB_drrij, dB_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dB_cyl)
       dB_drrij, dB_dRs = rrule_env_transform(rrij, Zi, Zj, Rs, Zs, dB_cyl, basis.cutoff)
       # assemble the forces 
       F[:, i] += dB_drrij 
@@ -211,12 +202,10 @@ function virial(basis::ACEBondPotentialBasis, at::Atoms{T}) where {T}
       # find the right ace model 
       ace = _get_model(basis, Zi, Zj)
       # transform the euclidean to cylindrical coordinates
-      #env = eucl2cyl(rrij, Zi, Zj, Rs, Zs)
       env = env_transform(rrij, Zi, Zj, Rs, Zs, basis.cutoff)
       # evaluate 
       dB_cyl = evaluate_d(ace, env)
       # transform back? 
-      #dB_drrij, dB_dRs = rrule_eucl2cyl(rrij::SVector, Zi, Zj, Rs, Zs, dB_cyl)
       dB_drrij, dB_dRs = rrule_env_transform(rrij, Zi, Zj, Rs, Zs, dB_cyl, basis.cutoff)
       # assemble the virials
       for iB = 1:length(basis)
