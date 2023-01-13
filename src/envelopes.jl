@@ -1,6 +1,9 @@
+module BondEnvelopes
+
 using LinearAlgebra: norm, dot 
 
-import ACE: _inner_evaluate
+import ACE: _inner_evaluate, B1pMultiplier, AbstractState
+
 
 """
 Given a bond (i, j) it has an environment {k} which could be 
@@ -109,3 +112,5 @@ _eval_env_inner(env::CylindricalBondEnvelope, z, r, zeff) = (
 _eval_env_inner(env::EllipsoidBondEnvelope, z, r, zeff) = (
          ( (z/zeff)^2 +(r/env.rcut)^2 - 1.0)^(env.pr) * 
            ((z/zeff)^2 +(r/env.rcut)^2 <= 1) )
+
+end

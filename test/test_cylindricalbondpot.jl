@@ -1,10 +1,12 @@
 using ACEbonds, ACE, ACEbase, Test, StaticArrays, LinearAlgebra, JuLIP
 using ACEbase.Testing
-using ACEbonds: CylindricalCutoff
+using ACEbonds.BondCutoffs: CylindricalCutoff
 using ACE: discrete_jacobi, Rn1pBasis, scal1pbasis, Scal1pBasis,
-           evaluate, evaluate_d, Trig1pBasis, @λ, 
+           evaluate, evaluate_d, Trig1pBasis, λ, 
            Product1pBasis, Categorical1pBasis, SimpleSparseBasis, 
            SymmetricBasis, Invariant, PIBasis
+
+using ACEbonds.BondSelectors: SparseCylindricalBondBasis
 
 ##
 
@@ -30,7 +32,7 @@ Pk = Scal1pBasis(:rij, nothing, :k, Jr0, "Jk")
 
 ##
 B1p = Product1pBasis((Cbe, Pk, Rn, El, Zm))
-Bsel = ACEbonds.SparseBondBasis(; maxorder = 3, 
+Bsel = SparseCylindricalBondBasis(; maxorder = 3, 
          default_maxdeg = maxdeg, 
          weight = Dict{Symbol, Float64}(:m => 1.0, :n => 1.0, :k => 1.0, :l => 1.0), 
                                  )
@@ -56,6 +58,13 @@ inds = Dict((zSi, zSi) => 1:length(basis))
 pot = ACEBondPotential(_models, cutoff)
 potbasis = ACEbonds.basis(pot)
 # potbasis = ACEBondPotentialBasis(models, inds, cutoff)
+
+@info("Test parameter setter and getter functions")
+θ1 = params(pot)
+set_params!(pot,θ1)
+println_slim(@test all(θ1 .== params(pot)))
+
+
 
 at = rattle!(set_pbc!(bulk(:Si, cubic=true) * (2, 2, 1), false), 0.2)
 
