@@ -1,7 +1,7 @@
 name = "ACEbonds"
 uuid = "d0dfcdf4-f9d4-4d39-8ac7-72ac73934171"
 authors = ["Christoph Ortner <christophortner0@gmail.com> and contributors"]
-version = "0.0.2"
+version = "0.0.3"
 
 [deps]
 ACE = "3e8ccfd2-c8b0-11ea-32f1-f3a5990fd77a"
