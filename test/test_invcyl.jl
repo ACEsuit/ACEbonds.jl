@@ -4,7 +4,7 @@ using ACEbase.Testing
 using ACEbonds.BondEnvelopes: CylindricalBondEnvelope
 using ACEbonds.BondSelectors: SparseCylindricalBondBasis
 using ACE: discrete_jacobi, Rn1pBasis, scal1pbasis, Scal1pBasis,
-           evaluate, evaluate_d, Trig1pBasis, @λ, 
+           evaluate, evaluate_d, Trig1pBasis, λ, 
            Product1pBasis, Categorical1pBasis, SimpleSparseBasis, 
            SymmetricBasis, Invariant, PIBasis
 
