@@ -26,7 +26,7 @@ Bsel = ACE.SparseBasis(; maxorder=maxorder, p = 2, default_maxdeg = maxdeg )
 # using ACE: Prodb, Onepb,minorder, maxorder
 
 basis = SymmetricEllipsoidBondBasis(Invariant(), Bsel; species=[:Si] );
-length(basis)
+
 @show length(basis)
 # for s in ACE.get_spec(basis)
 #     println(s)
