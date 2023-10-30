@@ -151,7 +151,7 @@ Alternatively, indsf can also be of the form of a filter function `atom_filter(i
    where both atoms satisfy the filter criterion.
 """
 bonds(at::Atoms, rcutbond, rcutenv, env_filter, subset) = FilteredBondsIterator(at, rcutbond, rcutenv, env_filter, subset)
-bonds(at::Atoms, cutoff::AbstractBondCutoff, filter=_->true) = FilteredBondsIterator( at, cutoff.rcutbond, 
+bonds(at::Atoms, cutoff::AbstractBondCutoff, filter=(_,_)->true) = FilteredBondsIterator( at, cutoff.rcutbond, 
                                                                    env_cutoff(cutoff) ,
                                                                   (r, z) -> env_filter(r, z, cutoff),  filter )
 
