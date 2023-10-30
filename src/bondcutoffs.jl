@@ -137,7 +137,7 @@ function ACE.read_dict(::Val{:ACEbonds_EllipsoidCutoff}, D::Dict)
     rcutbond = D["rcutbond"]
     rcutenv = D["rcutenv"]
     zcutenv = D["zcutenv"]
-    T = D["T"]
+    T = getfield(Base, Symbol(D["T"]))
     return EllipsoidCutoff{T}(rcutbond,rcutenv,zcutenv)
 end
 
