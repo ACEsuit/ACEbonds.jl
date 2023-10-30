@@ -3,12 +3,12 @@ using ACE: State, filter
 using JuLIP.Potentials: neigsz
 using JuLIP: Atoms
 # using ACE: BondEnvelope, filter, State, CylindricalBondEnvelope
-
-using ACEbonds.BondCutoffs: AbstractBondCutoff, env_cutoff, env_filter, EllipsoidCutoff
+import ACEbonds.BondCutoffs: env_cutoff
+using ACEbonds.BondCutoffs: AbstractBondCutoff, env_filter, EllipsoidCutoff
 
 _msort(z1,z2) = (z1<=z2 ? (z1,z2) : (z2,z1)) #TODO: this is hack. Need to either not use it here or define it once across all packages.
-enclosing_spherical_cutoff(cutoff::EllipsoidCutoff) = max(cutoff.rcutbond*.5 + cutoff.zcutenv, sqrt((cutoff.rcutbond*.5)^2+ cutoff.rcutenv^2))
-enclosing_spherical_cutoff(cutoffs::Dict{Tuple{AtomicNumber,AtomicNumber},CUTOFF}) where {CUTOFF<:AbstractBondCutoff} = maximum(enclosing_spherical_cutoff(c) for c in values(cutoffs))
+#env_cutoff(cutoff::EllipsoidCutoff) = max(cutoff.rcutbond*.5 + cutoff.zcutenv, sqrt((cutoff.rcutbond*.5)^2+ cutoff.rcutenv^2))
+env_cutoff(cutoffs::Dict{Tuple{AtomicNumber,AtomicNumber},CUTOFF}) where {CUTOFF<:AbstractBondCutoff} = maximum(env_cutoff(c) for c in values(cutoffs))
 
 
 bonds(at::Atoms, env::AbstractBondCutoff, args...) = 
@@ -152,7 +152,7 @@ Alternatively, indsf can also be of the form of a filter function `atom_filter(i
 """
 bonds(at::Atoms, rcutbond, rcutenv, env_filter, subset) = FilteredBondsIterator(at, rcutbond, rcutenv, env_filter, subset)
 bonds(at::Atoms, cutoff::AbstractBondCutoff, filter=_->true) = FilteredBondsIterator( at, cutoff.rcutbond, 
-                                                                   enclosing_spherical_cutoff(cutoff) ,
+                                                                   env_cutoff(cutoff) ,
                                                                   (r, z) -> env_filter(r, z, cutoff),  filter )
 
 """
@@ -292,7 +292,7 @@ Alternatively, indsf can also be of the form of a filter function `atom_filter(i
 """
 function bonds(at::Atoms, cutoffs::Dict{Tuple{AtomicNumber,AtomicNumber},CUTOFF}, subset::Array{<:Int}) where {CUTOFF<:AbstractBondCutoff}
    rcutbond =  maximum(cutoff.rcutbond for cutoff in values(cutoffs))
-   rcutenv = enclosing_spherical_cutoff(cutoffs)
+   rcutenv = env_cutoff(cutoffs)
    return FilteredBondsIteratorVarCutoff(at, rcutbond, rcutenv,subset, cutoffs)
 end
 
