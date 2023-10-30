@@ -9,6 +9,9 @@ using JuLIP: AtomicNumber, chemical_symbol
 using StaticArrays
 using LinearAlgebra: norm, I
 
+import ACE: write_dict, read_dict
+
+export write_dict, read_dict, EllipsoidCutoff, CylindricalCutoff
 
 
 
@@ -122,6 +125,20 @@ rrule_env_transform(rrij::SVector, Zi, Zj,
 
 include("ellipsoid_trans.jl") # contains rrules for ellipsoid2sphere and other auxiliary functions
 
+function ACE.write_dict(cutoff::EllipsoidCutoff{T}) where {T}
+    Dict("__id__" => "ACEbonds_EllipsoidCutoff",
+          "rcutbond" => cutoff.rcutbond,
+          "rcutenv" => cutoff.rcutenv,
+          "zcutenv" => cutoff.zcutenv,
+             "T" => T)         
+end 
 
+function ACE.read_dict(::Val{:ACEbonds_EllipsoidCutoff}, D::Dict)
+    rcutbond = D["rcutbond"]
+    rcutenv = D["rcutenv"]
+    zcutenv = D["zcutenv"]
+    T = D["T"]
+    return EllipsoidCutoff{T}(rcutbond,rcutenv,zcutenv)
+end
 
 end
