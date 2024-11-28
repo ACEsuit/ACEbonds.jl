@@ -1,12 +1,11 @@
 # very rudimentary test to see check whether BondsIterator and FilteredBondsIterator return the same environments.
-
-using ACEatoms, JuLIP
+using JuLIP
 using ACEbonds
 using ACE
 using ACEbonds.BondCutoffs: EllipsoidCutoff, env_transform
 using ACEbonds: bonds
 using ACEbase.Testing
-
+using Test
 r0cut = 3.2
 rcut = 4.0
 zcut = 5.0
